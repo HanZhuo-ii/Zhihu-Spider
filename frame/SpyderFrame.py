@@ -231,3 +231,4 @@ class DataSaver(threading.Thread):
                 self.mg_data_db.insert(data)
             # 没有数据，休息一会
             time.sleep(1)
+
