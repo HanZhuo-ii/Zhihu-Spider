@@ -7,12 +7,12 @@
 """
 
 import json
-from frame import SpyderFrame
+from frame import SpiderFrame
 
-URL_MANAGER = SpyderFrame.UrlManager()
+URL_MANAGER = SpiderFrame.UrlManager()
 
 
-class HtmlParser(SpyderFrame.HtmlParser):
+class HtmlParser(SpiderFrame.HtmlParser):
 
     @staticmethod
     def question_json_parser(question_text: str) -> list:
@@ -46,8 +46,8 @@ def spyder(question_id: str):
                    "%2A%5D.mark_infos%5B%2A%5D.url%3Bdata%5B%2A%5D.author.follower_count%2Cbadge%5B%2A%5D.topics" \
                    "&limit=5&offset=0"
     html_parser = HtmlParser()
-    html_downloader = SpyderFrame.HtmlDownloader()
-    data_saver = SpyderFrame.DataSaver(db_name="知乎", set_name="questions")
+    html_downloader = SpiderFrame.HtmlDownloader()
+    data_saver = SpiderFrame.DataSaver(db_name="知乎", set_name="questions")
 
     # 初始化URL队列
     URL_MANAGER.add_url(url=base_url_start + question_id + base_url_end)
