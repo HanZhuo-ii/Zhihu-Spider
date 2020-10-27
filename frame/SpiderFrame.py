@@ -115,13 +115,16 @@ class HtmlDownloader(threading.Thread):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                           "Chrome/85.0.4183.102 Safari/537.36 Edg/85.0.564.51 "
         }
-        socket.setdefaulttimeout(10)    # 设置超时
+        socket.setdefaulttimeout(10)  # 设置超时
 
-    def download(self, url: str, params={}) -> str:
+    def download(self, url: str, params=None) -> str:
+        if params is None:
+            params = {}
         with open("../error_log.txt", "w") as err_log:
             for i in range(3):
                 try:
-                    res = requests.get(url, params=params, headers=self.headers, proxies=self.proxies.Proxies, timeout=3)
+                    res = requests.get(url, params=params, headers=self.headers, proxies=self.proxies.Proxies,
+                                       timeout=3)
                     if res.status_code == 200:
                         return res.text
                     # 非200，更换代理，抛出异常
@@ -138,16 +141,99 @@ class HtmlDownloader(threading.Thread):
                     print(url + "; Other Error")
                     err_log.write(url + "; Other Error")
                 self.proxies.get_proxies()
-                print("downloading error , retrying.....{},3", i+1)
+                print("downloading error , retrying.....{},3", i + 1)
             raise requests.exceptions.RetryError
 
 
 # html解析，需要在主函数中重写
 class HtmlParser(object):
     def __init__(self):
+        self.get_detail = False
+        self.url_manager = None
+
+    def _hot_list_feed(self, data):
+        self._find_new_url(data["target"]['url'])
+        result = {
+            "card_id": data["card_id"],
+            "comment_count": data["target"]["comment_count"],
+            "follower_count": data["target"]["follower_count"],
+            "answer_count": data["target"]["answer_count"],
+            "hot_list_update_time": time.strftime("%Y-%m-%d", time.localtime()),
+            "type": "hot_list_feed"
+        }
+        if data['target']['type'] == 'question':
+            result.update({
+                "title": data["target"]["title"],
+                "id": data["target"]["id"],
+                "hot": data["detail_text"],
+                "created": data["target"]["created"],
+                "excerpt": data["target"]["excerpt"],
+                "url": data["target"]["url"]
+            })
+        else:
+            print(data)
+        return result
+
+    def _knowledge_ad(self, data):
+        self._find_new_url(data['object']['url'])
+        authors = data["object"]["body"]["authors"]
+        for i in range(len(authors)):
+            authors[i].pop("icon")
+        return {
+            "type": "knowledge_ad",
+            "id": data["id"],
+            "title": data["object"]["body"]["title"],
+            "authors": authors,
+            "description": data["object"]["body"]["description"],
+            # "commodity_type": data["object"]["body"]["commodity_type"],
+            "footer": data["object"]["footer"],
+            "url": data['object']['url']
+        }
+
+    def _search_result_answer(self, data):
+        self._find_new_url("https://www.zhihu.com/question/" + data['object']['question']['url'].split('/')[-1])
+        return {
+            "id": data["object"]["id"],
+            "q_id": data["object"]["question"]["id"],
+            "type": "search_result_answer",
+            "author": data["object"]["author"],
+            "q_name": data["object"]["question"]["name"],
+            "content": data["object"]["content"],
+            "excerpt": data["object"]["excerpt"],
+            "created_time": data["object"]["created_time"],
+            "updated_time": data["object"]["updated_time"],
+            "comment_count": data["object"]["comment_count"],
+            "voteup_count": data["object"]["voteup_count"],
+            "q_url": "https://www.zhihu.com/question/" + data['object']['question']['url'].split('/')[-1]
+        }
+
+    def _search_result_article(self, data):
         return
 
-    def html_parser(self):
+    def _search_result_question(self, data):
+        return
+
+    def _wiki_box(self, data):
+        data = data['object']
+        self._find_new_url("https://www.zhihu.com/topic/" + data['url'].split('/')[-1])
+        return {
+            "id": data["id"],
+            "aliases": data['aliases'],
+            "discussion_count": data["discussion_count"],
+            "essence_feed_count": data["essence_feed_count"],
+            "excerpt": data["excerpt"],
+            "follower_count": data["follower_count"],
+            "followers_count": data["followers_count"],
+            "introduction": data["introduction"],
+            "questions_count": data["questions_count"],
+            "top_answer_count": data["top_answer_count"],
+            "type": "wiki_box",
+            "url": "https://www.zhihu.com/topic/" + data['url'].split('/')[-1]
+        }
+
+    def _find_new_url(self, url):
+        if self.get_detail:
+            self.url_manager.add_url(url)
         return
 
 
@@ -231,4 +317,3 @@ class DataSaver(threading.Thread):
                 self.mg_data_db.insert(data)
             # 没有数据，休息一会
             time.sleep(1)
-

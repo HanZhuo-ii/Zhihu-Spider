@@ -1,16 +1,16 @@
-from frame import SpyderFrame
+from frame import SpiderFrame
 import json
 
 KWD = ''
 
 
-class HTMLParser(SpyderFrame.HtmlParser):
+class HTMLParser(SpiderFrame.HtmlParser):
 
-    def __init__(self, get_detail):
+    def __init__(self, get_detail=False):
         super().__init__()
         self.get_detail = get_detail
         if get_detail:
-            self.url_manager = SpyderFrame.UrlManager(db_set_name='知乎@' + KWD)
+            self.url_manager = SpiderFrame.UrlManager(db_set_name='知乎@' + KWD)
 
     def parser(self, data_list: list) -> dict:
         for data in data_list:
@@ -29,75 +29,13 @@ class HTMLParser(SpyderFrame.HtmlParser):
             else:
                 print(data)
 
-    def _knowledge_ad(self, data):
-        self._find_new_url(data['object']['url'])
-        authors = data["object"]["body"]["authors"]
-        for i in range(len(authors)):
-            authors[i].pop("icon")
-        return {
-            "type": "knowledge_ad",
-            "id": data["id"],
-            "title": data["object"]["body"]["title"],
-            "authors": authors,
-            "description": data["object"]["body"]["description"],
-            # "commodity_type": data["object"]["body"]["commodity_type"],
-            "footer": data["object"]["footer"],
-            "url": data['object']['url']
-        }
-
-    def _search_result_answer(self, data):
-        self._find_new_url("https://www.zhihu.com/question/" + data['object']['question']['url'].split('/')[-1])
-        return {
-            "id": data["object"]["id"],
-            "q_id": data["object"]["question"]["id"],
-            "type": "search_result_answer",
-            "author": data["object"]["author"],
-            "q_name": data["object"]["question"]["name"],
-            "content": data["object"]["content"],
-            "excerpt": data["object"]["excerpt"],
-            "created_time": data["object"]["created_time"],
-            "updated_time": data["object"]["updated_time"],
-            "comment_count": data["object"]["comment_count"],
-            "voteup_count": data["object"]["voteup_count"],
-            "q_url": "https://www.zhihu.com/question/" + data['object']['question']['url'].split('/')[-1]
-        }
-
-    def _wiki_box(self, data):
-        data = data['object']
-        self._find_new_url("https://www.zhihu.com/topic/" + data['url'].split('/')[-1])
-        return {
-            "id": data["id"],
-            "aliases": data['aliases'],
-            "discussion_count": data["discussion_count"],
-            "essence_feed_count": data["essence_feed_count"],
-            "excerpt": data["excerpt"],
-            "follower_count": data["follower_count"],
-            "followers_count": data["followers_count"],
-            "introduction": data["introduction"],
-            "questions_count": data["questions_count"],
-            "top_answer_count": data["top_answer_count"],
-            "type": "wiki_box",
-            "url": "https://www.zhihu.com/topic/" + data['url'].split('/')[-1]
-        }
-
-    def _find_new_url(self, url):
-        if self.get_detail:
-            self.url_manager.add_url(url)
-        return
-
-    def _search_result_article(self, data):
-        return
-
-    def _search_result_question(self, data):
-        return
-
 
 def search(keyword):
     global KWD
     KWD = keyword
     base_url = 'https://api.zhihu.com/search_v3'
-    html_downloader = SpyderFrame.HtmlDownloader()
-    data_saver = SpyderFrame.DataSaver(db_name='知乎', set_name=keyword)
+    html_downloader = SpiderFrame.HtmlDownloader()
+    data_saver = SpiderFrame.DataSaver(db_name='知乎', set_name=keyword)
     html_downloader.headers = {
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,"
                   "application/signed-exchange;v=b3;q=0.9",
@@ -142,7 +80,7 @@ def search(keyword):
         "t": "general",
         "vertical_info": "0,1,0,0,0,0,0,0,0,2"
     }
-    html_parser = HTMLParser(get_detail=0)
+    html_parser = HTMLParser()
     res = html_downloader.download(url=base_url, params=prams)
     while True:
         res = json.loads(res)
