@@ -12,30 +12,29 @@ class HTMLParser(SpiderFrame.HtmlParser):
         if get_detail:
             self.url_manager = SpiderFrame.UrlManager(db_set_name='知乎@' + KWD)
 
-    def parser(self, data_list: list) -> dict:
-        for data in data_list:
-            _type = data['type']
-            if _type == 'knowledge_ad':
-                yield self._knowledge_ad(data)
-            elif _type == "wiki_box":
-                yield self._wiki_box(data)
-            elif _type == 'search_result':
-                if data['object']['type'] == "answer":
-                    yield self._search_result_answer(data)
-                else:
-                    print(data)
-            elif _type == "relevant_query" or "multi_answers" or "search_club" or "video_box":
-                continue
+    def parse(self, data: dict) -> None:
+        _type = data['type']
+        if _type == 'knowledge_ad':
+            self._knowledge_ad(data)
+        elif _type == "wiki_box":
+            self._wiki_box(data)
+        elif _type == 'search_result':
+            if data['object']['type'] == "answer":
+                self._search_result_answer(data)
             else:
                 print(data)
+        elif _type == "relevant_query" or "multi_answers" or "search_club" or "video_box":
+            return
+        else:
+            print(data)
 
 
-def search(keyword):
+def search(keyword, get_detail=False):
     global KWD
     KWD = keyword
     base_url = 'https://api.zhihu.com/search_v3'
     html_downloader = SpiderFrame.HtmlDownloader()
-    data_saver = SpiderFrame.DataSaver(db_name='知乎', set_name=keyword)
+    data_saver = SpiderFrame.DataSaver(db_name='知乎', set_name="关键词搜索")
     html_downloader.headers = {
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,"
                   "application/signed-exchange;v=b3;q=0.9",
@@ -80,12 +79,19 @@ def search(keyword):
         "t": "general",
         "vertical_info": "0,1,0,0,0,0,0,0,0,2"
     }
-    html_parser = HTMLParser()
+    html_parser = HTMLParser(get_detail)
     res = html_downloader.download(url=base_url, params=prams)
+    if not data_saver.mg_data_db.find_one({"KeyWord": KWD}):
+        data_saver.mongo_insert({
+            "KeyWord": KWD,
+            "result": []
+        })
+
     while True:
         res = json.loads(res)
-        for data in html_parser.parser(res['data']):
-            data_saver.mongo_insert(data)
+        for data in res['data']:
+            data_saver.mg_data_db.update_one({"KeyWord": KWD}, {'$addToSet': {"result": data}})
+            html_parser.parse(data)
         if res['paging']['is_end']:
             break
         next_url = res['paging']['next']

@@ -6,33 +6,17 @@
     @main_function  spyder(question_id: str)
 """
 
-import json
 from frame import SpiderFrame
-
-URL_MANAGER = SpiderFrame.UrlManager()
+import json
 
 
 class HtmlParser(SpiderFrame.HtmlParser):
-
-    @staticmethod
-    def question_json_parser(question_text: str) -> list:
-        # 格式化，str转字典
-        question_json = json.loads(question_text)
-
-        # 游标，下个数据包URL
-        if not question_json["paging"]["is_end"]:
-            next_url = question_json["paging"]["next"]
-            URL_MANAGER.add_url(next_url)
-
-        # 解析json里的data数据包
-        data_results = question_json["data"]
-        for i in range(len(data_results)):
-            # 修正ID格式，为MongoDB的索引格式
-            data_results[i].update({"_id": data_results[i].pop("id")})
-            yield data_results[i]
+    def __init__(self):
+        super().__init__()
+        self.url_manager = SpiderFrame.UrlManager()
 
 
-def spyder(question_id: str):
+def spider(question_id: str):
     """
         :input str in list 列表内嵌套字符串
     """
@@ -50,12 +34,24 @@ def spyder(question_id: str):
     data_saver = SpiderFrame.DataSaver(db_name="知乎", set_name="questions")
 
     # 初始化URL队列
-    URL_MANAGER.add_url(url=base_url_start + question_id + base_url_end)
+    html_parser.url_manager.add_url(url=base_url_start + question_id + base_url_end)
+    if not data_saver.mg_data_db.find_one({"QuestionId": question_id}):
+        data_saver.mongo_insert({
+            "QuestionId": question_id,
+            "result": []
+        })
 
-    while URL_MANAGER.not_complete():
-        url = URL_MANAGER.get()
-        for data in html_parser.question_json_parser(html_downloader.download(url)):
-            data_saver.mongo_insert(data_dict=data)
+    while html_parser.url_manager.not_complete():
+        url = html_parser.url_manager.get()
+        res = html_downloader.download(url)
+        question_json = json.loads(res)
+        # 游标，下个数据包URL
+        if not question_json["paging"]["is_end"]:
+            next_url = question_json["paging"]["next"]
+            html_parser.url_manager.add_url(next_url)
+
+        for data in question_json["data"]:
+            data_saver.mg_data_db.update_one({"QuestionId": question_id}, {'$addToSet': {"result": data}})
 
     # 结束线程
     html_downloader.proxies.__exit__()
@@ -67,4 +63,4 @@ if __name__ == '__main__':
         question_list.append(question.strip())
 
     for question in question_list:
-        spyder(question)
+        spider(question)
