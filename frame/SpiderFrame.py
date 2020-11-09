@@ -11,8 +11,10 @@ import requests
 import time
 import redis
 import socket
+from utils import logger
 
 redis = redis.Redis()
+logger = logger.custom_logger("Base")
 
 
 # 代理线程
@@ -62,7 +64,7 @@ class Proxies(threading.Thread):
 
 
 class UrlManager(object):
-    """url管理"""
+    """url管理, 单个UrlManager对象控制单个队列"""
 
     # 初始化url池
     def __init__(self, db_set_name='', use_redis=False):
@@ -93,7 +95,7 @@ class UrlManager(object):
         return redis.lpop("list_" + self.db_set_name).decode("utf-8")  # 列表头部pop
 
     # 队列还有URL吗
-    def not_complete(self) -> bool:
+    def list_not_null(self) -> bool:
         if not self.use_redis and len(self.url_list):
             return True
         elif redis.llen("list_" + self.db_set_name) != 0:
@@ -105,6 +107,7 @@ class UrlManager(object):
 class HtmlDownloader(threading.Thread):
 
     def __init__(self):
+        """:param None"""
         # 实例化Proxies类
         super().__init__()
         self.proxies = Proxies()

@@ -13,4 +13,3 @@ def parser(text: str):
     :param text: html数据
     :return data: wiki处理完成的json数据
     """
-    

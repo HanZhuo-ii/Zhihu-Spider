@@ -44,7 +44,5 @@ def get_hot_list(get_detail=False):
     print('Complete!')
 
 
-
-
 if __name__ == '__main__':
     get_hot_list()

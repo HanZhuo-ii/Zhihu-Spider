@@ -1,10 +1,18 @@
+"""
+    @author         满目皆星河
+    @creat_date     2020/10/06
+    @update_data    2020/10/06
+    @desc           评论爬虫，提供answer的id，爬该answer下所有评论
+    @main_function  spyder(question_id: str)
+"""
+
 from frame import SpiderFrame
 from json import loads as json_lds
 
 
 def spider(answer_id: str) -> None:
     html_downloader = SpiderFrame.HtmlDownloader()
-    data_saver = SpiderFrame.DataSaver(db_name='知乎',set_name='评论')
+    data_saver = SpiderFrame.DataSaver(db_name='知乎', set_name='评论')
     url = "https://www.zhihu.com/api/v4/answers/{}/root_comments?limit=10&offset=0&order=normal&status=open" \
         .format(answer_id)
     res = html_downloader.download(url)

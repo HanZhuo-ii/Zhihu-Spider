@@ -3,7 +3,7 @@
     @creat_date     2020/10/06
     @update_data    2020/10/06
     @desc           知乎回答爬虫，爬某个提问下面全部的回答以及回答的详细信息, 存入MongoDB.知乎.questions
-    @main_function  spyder(question_id: str)
+    @main_function  spider(question_id: str)
 """
 
 from frame import SpiderFrame
@@ -41,7 +41,7 @@ def spider(question_id: str):
             "result": []
         })
 
-    while html_parser.url_manager.not_complete():
+    while html_parser.url_manager.list_not_null():
         url = html_parser.url_manager.get()
         res = html_downloader.download(url)
         question_json = json.loads(res)
