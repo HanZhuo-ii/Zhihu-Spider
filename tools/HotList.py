@@ -6,6 +6,8 @@ from frame import SpiderFrame
 from json import loads as json_lds
 from time import localtime, strftime
 
+logger = SpiderFrame.logger
+
 
 class HTMLParser(SpiderFrame.HtmlParser):
     def __init__(self, get_detail=False):
@@ -29,6 +31,7 @@ def get_hot_list(get_detail=False):
         "HotListUpdated": strftime("%Y-%m-%d", localtime()),
         "data": []
     }
+    logger.info("Getting Hot List....")
     while True:
         res = html_downloader.download(url)
         res = json_lds(res)
@@ -36,12 +39,14 @@ def get_hot_list(get_detail=False):
             html_parser.parse(data)
             result['data'].append(data)
         if res['paging']['is_end']:
+            logger.info("Paging is end, exit")
             break
         url = res['paging']['next']
 
     html_downloader.proxies.__exit__()
+    logger.info("Saving Data To MongoDB")
     data_saver.mongo_insert(result)
-    print('Complete!')
+    logger.info('Complete!')
 
 
 if __name__ == '__main__':

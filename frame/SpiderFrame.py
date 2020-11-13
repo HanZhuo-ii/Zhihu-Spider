@@ -8,13 +8,73 @@
 import threading
 import pandas as pd
 import requests
-import time
 import redis
 import socket
-from utils import logger
+import logging
+import time
+import config
+from os import path
 
-redis = redis.Redis()
-logger = logger.custom_logger("Base")
+redis = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, password=config.REDIS_PASSWORD)
+
+
+class exception(Exception):
+    class UserNotExist(Exception):
+        def __init__(self):
+            super().__init__()
+
+        def __str__(self):
+            return "用户账户已注销"
+
+    class UrlEmptyException(Exception):
+        def __init__(self):
+            super().__init__()
+
+        def __str__(self):
+            return "Url is Empty"
+
+    class NumInfoLengthException(Exception):
+        def __init__(self):
+            super().__init__()
+
+        def __str__(self):
+            return "Get info error: length of number of info is too short."
+
+    class UnexpectedError(Exception):
+        def __init__(self):
+            super().__init__()
+
+        def __str__(self):
+            return "SOME FATAL ERROR HAS BEEN ACCORDED! "
+
+
+def custom_logger(__name__):
+    # 创建log
+    log = logging.getLogger()
+    log.setLevel(logging.INFO)  # Log等级总开关
+
+    # 创建handler，用于写入日志文件
+    log_time = time.strftime('%Y-%m-%d', time.localtime(time.time()))
+    log_file = path.join(config.LOG_PATH, log_time + '.log')
+
+    logging_file_handler = logging.FileHandler(log_file, mode='a+')
+    logging_stream_handler = logging.StreamHandler()
+    logging_file_handler.setLevel(logging.WARNING)  # 输出到file的log等级的开关
+    logging_stream_handler.setLevel(logging.INFO)  # 输出到控制台log等级开关
+
+    # 定义handler输出格式
+    formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(filename)s, line %(lineno)d, in %(funcName)s: %(message)s")
+    logging_file_handler.setFormatter(formatter)
+    logging_stream_handler.setFormatter(formatter)
+
+    # 将log添加handler里
+    log.addHandler(logging_file_handler)
+    log.addHandler(logging_stream_handler)
+    return log
+
+
+logger = custom_logger("Base")
 
 
 # 代理线程
@@ -24,7 +84,7 @@ class Proxies(threading.Thread):
         super().__init__()
         # 线程运行标志
         self.__thread__flag = True
-        self.get_proxies_api = "http://api.xdaili.cn/xdaili-api//greatRecharge/getGreatIp?spiderId" \
+        self.get_proxies_api = "http://api.xdaili.cn/xdaili-api/greatRecharge/getGreatIp?spiderId" \
                                "=192b9425f13c47ffbbe4a663c974608b&orderno=YZ2020219595449Wzor&returnType=2&count=1 "
         self.Proxies = {
             "http": "",
@@ -33,22 +93,24 @@ class Proxies(threading.Thread):
 
     # 结束线程
     def __exit__(self):
+        logger.info("Exit Proxies with code 0")
         self.__thread__flag = False
 
     # 如果代理失效，通知进程主动更新代理
     def get_proxies(self):
         i = 0
         for i in range(5):
-            print("第" + str(i + 1) + "次获取代理。。。")
             res = requests.get(self.get_proxies_api)
             j = eval(res.text)
             if j['ERRORCODE'] == '0':
                 self.Proxies['http'] = "http://" + j['RESULT'][0]['ip'] + ":" + j['RESULT'][0]['port']
                 self.Proxies['https'] = "http://" + j['RESULT'][0]['ip'] + ":" + j['RESULT'][0]['port']
+                logger.info("Successfully get proxies")
                 return
+            logger.warning("Failed, " + str(i + 1) + " times get proxies...")
             time.sleep(1.2)
         if i == 4:
-            print("获取代理失败，程序退出。。。")
+            logger.critical("Get proxies failed, exit program...")
             exit(1)
 
     # 监测代理时间。如果超时更新代理
@@ -56,7 +118,8 @@ class Proxies(threading.Thread):
         start_time = time.time()
         while self.__thread__flag:
             # 设置代理生存时间为60s
-            if start_time - time.time() > 60:
+            if start_time - time.time() > config.PROXIES_LIVE_TIME:
+                logger.warning("proxies failure, get new one")
                 # 重设代理使用时长
                 start_time = time.time()
                 self.get_proxies()
@@ -69,15 +132,17 @@ class UrlManager(object):
     # 初始化url池
     def __init__(self, db_set_name='', use_redis=False):
         """支持Redis队列解决断点续爬功能，需指定参数use_redis=True
-
         :param db_set_name str Redis队列数据库名，默认为空
         """
         self.use_redis = use_redis
         self.db_set_name = db_set_name
+
         if not use_redis:
             self.url_list = []
             self.url_set = set()
-        return
+            logger.info("Init UrlManager, use_redis=False")
+        else:
+            logger.info("Init UrlManager, use_redis=True, db_set_name=" + db_set_name)
 
     # 定义插入url方法
     def add_url(self, url: str) -> None:
@@ -88,8 +153,23 @@ class UrlManager(object):
         elif redis.sadd("set_" + self.db_set_name, url):  # 如果插入成功，会返回数据量
             redis.rpush("list_" + self.db_set_name, url)  # 列表尾部插入
 
+    @staticmethod
+    def add_id(id_set: str, _id: str):
+        if type(_id) == int:
+            _id = str(_id)
+        if redis.sadd("set_" + id_set, _id):
+            redis.rpush("list_" + id_set, _id)
+
+    def force_add_url(self, url: str) -> None:
+        if not self.use_redis:
+            self.url_list.append(url)
+        else:
+            redis.rpush("list_" + self.db_set_name, url)  # 列表尾部插入
+
     # 从队列头部提取url
     def get(self) -> str:
+        if not self.list_not_null():
+            raise exception.UrlEmptyException
         if not self.use_redis:
             return self.url_list.pop(0)
         return redis.lpop("list_" + self.db_set_name).decode("utf-8")  # 列表头部pop
@@ -121,31 +201,43 @@ class HtmlDownloader(threading.Thread):
         socket.setdefaulttimeout(10)  # 设置超时
 
     def download(self, url: str, params=None) -> str:
+        if url == "":
+            raise exception.UrlEmptyException
+        res = ''  # 没啥用，消除警告而已
         if params is None:
             params = {}
-        with open("../error_log.txt", "w") as err_log:
-            for i in range(3):
-                try:
-                    res = requests.get(url, params=params, headers=self.headers, proxies=self.proxies.Proxies,
-                                       timeout=3)
-                    if res.status_code == 200:
-                        return res.text
-                    # 非200，更换代理，抛出异常
-                    self.proxies.get_proxies()
-                    res.raise_for_status()
-                # 记录异常
-                except requests.exceptions.HTTPError:
-                    print(url + "; HTTPError; Code " + str(res.status_code))
-                    err_log.write(url + "; HTTPError; Code " + str(res.status_code))
-                except requests.exceptions.Timeout:
-                    print(url + "; Timeout")
-                    err_log.write(url + "; Timeout")
-                except Exception:
-                    print(url + "; Other Error")
-                    err_log.write(url + "; Other Error")
+        for i in range(3):
+            try:
+                res = requests.get(url, params=params, headers=self.headers, proxies=self.proxies.Proxies,
+                                   timeout=3)
+                if res.status_code == 200:
+                    return res.text
+                # 非200，更换代理，抛出异常
                 self.proxies.get_proxies()
-                print("downloading error , retrying.....{},3", i + 1)
-            raise requests.exceptions.RetryError
+                res.raise_for_status()
+            # 记录异常
+            except requests.exceptions.HTTPError:
+                logger.error(u"HTTPError; Code {0}[{1}]".format(str(res.status_code), url))
+            except requests.exceptions.Timeout:
+                logger.error(url + "; Timeout")
+            except Exception:
+                logger.error("Undefined Error [{0}]".format(url))
+            # 请求失败，更换代理，重试
+            self.proxies.get_proxies()
+            logger.warning("downloading error , retrying.....{0},3".format(i + 1))
+        logger.critical("requests.exceptions.RetryError [{0}]".format(url), exc_info=True)
+        raise requests.exceptions.RetryError
+
+    def img_download(self, dir_path: str, url: str) -> None:
+        if url == "":
+            raise exception.UrlEmptyException
+        file_name = path.join(dir_path, path.basename(url).split("?")[0])
+        try:
+            res = requests.get(url, headers=self.headers, proxies=self.proxies.Proxies)
+            with open(file_name, "wb") as f:
+                f.write(res.content)
+        except:
+            logger.error("下载图片失败")
 
 
 # html解析，需要在主函数中重写
@@ -228,9 +320,15 @@ class DataSaver(threading.Thread):
         :param set_name: str 可选 要存储的MongoDB集合名
         :func run: 采用run同步Redis与Mongo数据
         """
+
+        logger.info(
+            "Init DataSaver, db_name={0}, set_name={1}, use_auto_increase_index={2}, use_redis={3}".format(db_name,
+                                                                                                           set_name,
+                                                                                                           use_auto_increase_index,
+                                                                                                           use_redis))
         super().__init__()
         import pymongo
-        mg_client = pymongo.MongoClient("mongodb://localhost:27017/")
+        mg_client = pymongo.MongoClient(config.MONGO_CONNECTION)
 
         self.db_name = db_name
         self.set_name = set_name
@@ -254,6 +352,7 @@ class DataSaver(threading.Thread):
 
     def __exit__(self):
         self.__tread__flag = False
+        logger.info("Exit DataSaver...")
 
     # csv存储
     @staticmethod

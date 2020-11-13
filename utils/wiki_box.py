@@ -7,9 +7,10 @@
 """
 
 
-def parser(text: str):
-    """
-    解析wiki_box内容
-    :param text: html数据
-    :return data: wiki处理完成的json数据
-    """
+# def parser(text: str):
+"""
+解析wiki_box内容
+:param text: html数据
+:return data: wiki处理完成的json数据
+"""
+print("import")
