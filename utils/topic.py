@@ -35,11 +35,11 @@ def parse_base_topic_info(html: str):
     # for tag in tags:
     #     child_tag_list.append(tag.text)
     try:
-        follower = soup.find_all("strong", {"class": "NumberBoard-itemValue"})[0].text
-        question_num = soup.find_all("strong", {"class": "NumberBoard-itemValue"})[1].text
+        follower = int(soup.find_all("strong", {"class": "NumberBoard-itemValue"})[0].text.strip().replace(",", ""))
+        question_num = int(soup.find_all("strong", {"class": "NumberBoard-itemValue"})[1].text.strip().replace(",", ""))
     except Exception as e:
         logger.error("Get topic follower and question_num failed, Exception: {0}".format(e))
-        follower, question_num = '', ''
+        follower, question_num = 0, 0
     return title, follower, question_num
 
 
