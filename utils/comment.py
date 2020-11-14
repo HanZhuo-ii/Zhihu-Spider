@@ -9,6 +9,7 @@
 
 from frame import SpiderFrame
 from json import loads as json_lds
+from time import sleep
 import config
 
 
@@ -37,6 +38,7 @@ def spider(answer_id: str) -> None:
 
     try:
         while url_manager.list_not_null():
+            sleep(.3)
             res = html_downloader.download(url_manager.get())
             res = json_lds(res)
             for data in res['data']:

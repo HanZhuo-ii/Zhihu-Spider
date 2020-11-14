@@ -7,7 +7,6 @@
 @Description : 
 """
 
-import os
 import redis
 import config
 from time import sleep
@@ -30,10 +29,13 @@ class TopicSpider(Thread):
     def run(self):
         logger.info("TopicSpider thread start...")
         _id = ''
-        # self.id_manager.add_id(config.TOPIC_ID_SET, "19610306")
+        # self.id_manager.add_id(config.TOPIC_ID_SET, "19563451")
         try:
-            while self.id_manager.list_not_null():
-                _id = self.id_manager.get()
+            while self.id_manager.list_not_null() or self.id_manager.list_not_null(config.TOPIC_SET):
+                try:
+                    _id = self.id_manager.get()
+                except:
+                    _id = ''
                 topic.spider(_id)
         except Exception as e:
             # 之前的报错信息已被记录
@@ -55,9 +57,12 @@ class QuestionSpider(Thread):
         logger.info("QuestionSpider thread start...")
         _id = ''
         try:
-            while self.id_manager.list_not_null():
-                _id = self.id_manager.get()
-                question.spider(_id)
+            while True:
+                if self.id_manager.list_not_null():
+                    _id = self.id_manager.get()
+                    question.spider(_id)
+                else:
+                    sleep(5)
         except Exception as e:
             # 之前的报错信息已被记录
             logger.critical("Unexpected Exit QuestionSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
@@ -78,9 +83,12 @@ class CommentSpider(Thread):
         _id = ''
         try:
             logger.info("CommentSpider thread start...")
-            while self.id_manager.list_not_null():
-                _id = self.id_manager.get()
-                comment.spider(_id)
+            while True:
+                if self.id_manager.list_not_null():
+                    _id = self.id_manager.get()
+                    comment.spider(_id)
+                else:
+                    sleep(5)
         except Exception as e:
             # 之前的报错信息已被记录
             logger.critical("Unexpected Exit CommentSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
@@ -101,9 +109,12 @@ class UserSpider(Thread):
         logger.info("UserSpider thread start...")
         _id = ''
         try:
-            while self.id_manager.list_not_null():
-                _id = self.id_manager.get()
-                user.spider(_id)
+            while True:
+                if self.id_manager.list_not_null():
+                    _id = self.id_manager.get()
+                    user.spider(_id)
+                else:
+                    sleep(5)
         except Exception as e:
             # 之前的报错信息已被记录
             logger.critical("Unexpected Exit UserSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
@@ -113,39 +124,76 @@ class UserSpider(Thread):
             user.html_downloader.proxies.__exit__()
 
 
-class Order(Thread):
-    def __init__(self):
-        super().__init__()
-
-    def run(self):
-        while True:
-            logger.warning("Clear the console...")
-            for i in range(0, 300):     # 间接sleep了clc
-                logger.info("Redis: Saving data")
-                redis.save()
-                sleep(2)
-                if not (TS.is_alive() or QS.is_alive() or CS.is_alive() or US.is_alive()):
-                    logger.warning("All Threads already exit, Order is exiting with code 0")
-                    exit(0)
-            os.system('cls')  # 执行cls命令清空Python控制台
-
-
-
 if __name__ == '__main__':
-    order = Order()
     TS = TopicSpider()
     QS = QuestionSpider()
     CS = CommentSpider()
     US = UserSpider()
 
-    order.start()
     TS.start()
-    logger.info("Waiting to start next thread...")
-    sleep(5)
+    logger.info("Next thread will be start after 10s")
+    sleep(10)
     QS.start()
-    logger.info("Waiting to start next thread...")
-    sleep(5)
+    logger.info("Next thread will be start after 10s")
+    sleep(10)
     CS.start()
-    logger.info("Waiting to start next thread...")
-    sleep(5)
+    logger.info("Next thread will be start after 10s")
+    sleep(10)
     US.start()
+
+    logger.warning("爬虫进程启动完成，启动监控进程")
+    # watching
+    while True:
+        TS_i = QS_i = CS_i = US_i = 1
+        if not TS.is_alive() and (redis.llen(config.TOPIC_ID_SET) or redis.llen(config.TOPIC_SET)):
+            for i in range(1, 4):
+                if TS.is_alive():
+                    continue
+                logger.warning("TS is exit, try active it. ({0}/3)".format(TS_i))
+                TS = TopicSpider()
+                TS.start()
+                sleep(5)
+                if i == 3 and not TS.is_alive():
+                    logger.error("Active thread TS failed")
+                    send_mail("TS is exit and try to activate it failed")
+        if not QS.is_alive() and (redis.llen(config.QUESTION_ID_SET) or redis.llen(config.QUESTION_SET)):
+            for i in range(1, 4):
+                if QS.is_alive():
+                    QS_i = 1
+                    continue
+                logger.warning("QS is exit, try active it. ({0}/3)".format(QS_i))
+                QS = QuestionSpider()
+                QS.start()
+                sleep(5)
+                if i == 3 and not QS.is_alive():
+                    logger.error("----- Active thread QS failed -----")
+                    send_mail("QS is exit and try to activate it failed")
+        if not CS.is_alive() and (redis.llen(config.ANSWER_ID_SET) or redis.llen(config.COMMENT_SET)):
+            for i in range(1, 4):
+                if CS.is_alive():
+                    CS_i = 1
+                    continue
+                logger.warning("QS is exit, try active it. ({0}/3)".format(CS_i))
+                CS = CommentSpider()
+                CS.start()
+                sleep(5)
+                if i == 3 and not CS.is_alive():
+                    logger.error("----- Active thread CS failed -----")
+                    send_mail("CS is exit and try to activate it failed")
+        if not US.is_alive() and redis.llen(config.USER_ID_SET):
+            for i in range(1, 4):
+                if US.is_alive():
+                    US_i = 1
+                    continue
+                logger.warning("US is exit, try active it. ({0}/3)".format(US_i))
+                US = UserSpider()
+                US.start()
+                sleep(5)
+                if i == 3 and not US.is_alive():
+                    logger.error("----- Active thread US failed -----")
+                    send_mail("US is exit and try to activate it failed")
+        if not(TS.is_alive() or QS.is_alive() or CS.is_alive() or US.is_alive()):
+            logger.critical("----- All thread exited and can't be actived, main thread is exiting -----")
+        if TS.is_alive() and QS.is_alive() and CS.is_alive() and US.is_alive():
+            logger.info("----- ALL THREAD IS ALIVE -----")
+        sleep(10)

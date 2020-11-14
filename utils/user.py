@@ -147,6 +147,8 @@ def spider(u_id: str) -> None:
             data_saver.mg_data_db.find_one_and_update({"user_token": u_id}, {"$set": data})
         else:
             data_saver.mongo_insert(data)
+    except SpiderFrame.exception.UserNotExist as e:
+        logger.error(e)
     except Exception as e:
         logger.error(e, exc_info=True)
 

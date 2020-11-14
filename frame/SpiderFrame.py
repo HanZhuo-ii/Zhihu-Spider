@@ -99,7 +99,7 @@ class Proxies(threading.Thread):
     # 如果代理失效，通知进程主动更新代理
     def get_proxies(self):
         i = 0
-        for i in range(5):
+        for i in range(config.REQUEST_RETRY_TIMES):
             res = requests.get(self.get_proxies_api)
             j = eval(res.text)
             if j['ERRORCODE'] == '0':
@@ -108,10 +108,9 @@ class Proxies(threading.Thread):
                 logger.info("Successfully get proxies")
                 return
             logger.warning("Failed, " + str(i + 1) + " times get proxies...")
-            time.sleep(1.2)
+            time.sleep(5)
         if i == 4:
             logger.critical("Get proxies failed, exit program...")
-            exit(1)
 
     # 监测代理时间。如果超时更新代理
     def run(self) -> None:
@@ -175,10 +174,12 @@ class UrlManager(object):
         return redis.lpop("list_" + self.db_set_name).decode("utf-8")  # 列表头部pop
 
     # 队列还有URL吗
-    def list_not_null(self) -> bool:
+    def list_not_null(self, set_name=None) -> bool:
+        if set_name is None:
+            set_name = self.db_set_name
         if not self.use_redis and len(self.url_list):
             return True
-        elif redis.llen("list_" + self.db_set_name) != 0:
+        elif redis.llen("list_" + set_name) != 0:
             return True
         return False
 
@@ -198,7 +199,7 @@ class HtmlDownloader(threading.Thread):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                           "Chrome/85.0.4183.102 Safari/537.36 Edg/85.0.564.51 "
         }
-        socket.setdefaulttimeout(10)  # 设置超时
+        socket.setdefaulttimeout(config.SOCKET_DEFAULT_TIMEOUT)  # 设置超时
 
     def download(self, url: str, params=None) -> str:
         if url == "":
@@ -206,7 +207,7 @@ class HtmlDownloader(threading.Thread):
         res = ''  # 没啥用，消除警告而已
         if params is None:
             params = {}
-        for i in range(3):
+        for i in range(config.REQUEST_RETRY_TIMES):
             try:
                 res = requests.get(url, params=params, headers=self.headers, proxies=self.proxies.Proxies,
                                    timeout=3)

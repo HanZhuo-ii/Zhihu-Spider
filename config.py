@@ -6,6 +6,8 @@ REDIS_PORT = 6379
 REDIS_PASSWORD = None
 MONGO_CONNECTION = "mongodb://localhost:27017/"
 PROXIES_LIVE_TIME = 60
+REQUEST_RETRY_TIMES = 5
+SOCKET_DEFAULT_TIMEOUT = 20     # 整个request生命周期
 
 """
     这两个SET主要用于存储从其他数据包中提取出的question_id和answer_id
@@ -35,6 +37,7 @@ QUESTION_SET = "提问"
 # question获取某个提问下所有回答，QUESTION_GET_DETAIL控制是否将回答ID添加到Answer_id集合
 QUESTION_ADD_ANSWER_ID = True
 ANSWER_IMG_DIR = "E:/Data/知乎/img/answer"
+DOWNLOAD_IMG = False
 
 # --- comment ---
 #  MongoDB, Redis集合名

@@ -7,6 +7,7 @@
 """
 from frame import SpiderFrame
 from bs4 import BeautifulSoup
+from time import sleep
 
 import config
 import json
@@ -24,16 +25,6 @@ def parse_base_topic_info(html: str):
     except Exception as e:
         logger.error("Get Topic title failed, Exception: {0}".format(e))
         title = ''
-    # 暂时失效
-    # father_tag_list = []
-    # tags = soup.find_all("div", {"class": "TopicTagsContainer"})[0].find_all("span", {"class": "Tag-content"})
-    # for tag in tags:
-    #     father_tag_list.append(tag.text)
-    #
-    # child_tag_list = []
-    # tags = soup.find_all("div", {"class": "TopicTagsContainer"})[1].find_all("span", {"class": "Tag-content"})
-    # for tag in tags:
-    #     child_tag_list.append(tag.text)
     try:
         follower = int(soup.find_all("strong", {"class": "NumberBoard-itemValue"})[0].text.strip().replace(",", ""))
         question_num = int(soup.find_all("strong", {"class": "NumberBoard-itemValue"})[1].text.strip().replace(",", ""))
@@ -66,6 +57,7 @@ def spider(topic_id: str):
             })
 
         while url_manager.list_not_null():
+            sleep(.3)
             url = url_manager.get()
             res = html_downloader.download(url)
             topic_json = json.loads(res)
@@ -98,9 +90,8 @@ def spider(topic_id: str):
         url_manager.add_id(id_set=config.TOPIC_ID_SET, _id=topic_id)
         # send_mail("Fatal Error With url: <{0}>, Message:{1}".format(url, e))
         # 结束线程
-        logger.error("Kill Proxies")
         html_downloader.proxies.__exit__()
-        logger.error("Process finished with exit code -1")
+        logger.critical("Process finished with exit code -1")
         raise SpiderFrame.exception.UnexpectedError
 
 

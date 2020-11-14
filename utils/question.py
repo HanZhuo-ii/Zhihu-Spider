@@ -12,6 +12,7 @@ from re import findall
 from os import path, makedirs
 import json
 import config
+from time import sleep
 
 logger = SpiderFrame.logger
 
@@ -97,6 +98,7 @@ def spider(question_id: str):
 
         # question detail
         while html_parser.url_manager.list_not_null():
+            sleep(.3)
             url = html_parser.url_manager.get()
             res = html_downloader.download(url)
             question_json = json.loads(res)
@@ -107,13 +109,14 @@ def spider(question_id: str):
                     continue
                 try:
                     data.pop("excerpt")
-                    url_list = findall("<img src=\"(http.*?)\"", data["content"])
-                    img_path = path.join(config.ANSWER_IMG_DIR, question_id)
-                    if not path.exists(img_path):
-                        logger.info("Img file not exist, creating...")
-                        makedirs(img_path)
-                    for img_url in url_list:
-                        html_downloader.img_download(img_path, img_url)
+                    if config.DOWNLOAD_IMG:
+                        url_list = findall("<img src=\"(http.*?)\"", data["content"])
+                        img_path = path.join(config.ANSWER_IMG_DIR, question_id)
+                        if not path.exists(img_path):
+                            logger.info("Img file not exist, creating...")
+                            makedirs(img_path)
+                        for img_url in url_list:
+                            html_downloader.img_download(img_path, img_url)
                 except:
                     logger.error("Answer:{0}, Message: 图片下载失败".format(data["id"]))
                 data_saver.mg_data_db.update_one({"QuestionId": question_id}, {'$addToSet': {"result": data}})
