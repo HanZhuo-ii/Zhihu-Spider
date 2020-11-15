@@ -74,7 +74,7 @@ def spider(question_id: str):
         :param question_id: 问题ID
     """
     url = ""
-
+    offset = config.MONGO_DOC_LIMIT
     try:
         # 初始化URL队列，如果之前已经爬过，添加不进去，继续上次断点
         html_parser.url_manager.add_url(url=_init_url_(question_id))
@@ -84,7 +84,7 @@ def spider(question_id: str):
         res = html_downloader.download(url)
         title, question, tag_list, follower, watched = html_parser.parse_base_question_info(res)
 
-        if not data_saver.mg_data_db.find_one({"QuestionId": question_id}):
+        if not data_saver.mg_data_db.find_one({"QuestionId": question_id, "offset": offset}):
             data_saver.mongo_insert({
                 "QuestionId": question_id,
                 "title": title,
@@ -92,20 +92,47 @@ def spider(question_id: str):
                 "tag_list": tag_list,
                 "follower": follower,
                 "watched": watched,
+                "limit": config.MONGO_DOC_LIMIT,
+                "offset": offset,
                 "end_url": "",
-                "result": []
+                "data": []
             })
 
         # question detail
         while html_parser.url_manager.list_not_null():
             sleep(.3)
             url = html_parser.url_manager.get()
-            res = html_downloader.download(url)
-            question_json = json.loads(res)
+            try:
+                res = html_downloader.download(url)
+            except SpiderFrame.exception.RequestRetryError as e:
+                logger.error(e, exc_info=True)
+                html_parser.url_manager.add_url(url)
+                sleep(1)
+                continue
+            try:
+                question_json = json.loads(res)
+            except:
+                logger.error("Json格式校验错误")
+                continue
             for data in question_json["data"]:
+                if len(data_saver.mg_data_db.find_one({"QuestionId": question_id, "offset": offset})["data"]) >= 5000:
+                    logger.warning("MongoDB document out of limit, Create new document and update offset")
+                    offset += config.MONGO_DOC_LIMIT
+                    data_saver.mongo_insert({
+                        "QuestionId": question_id,
+                        "title": title,
+                        "question": question,
+                        "tag_list": tag_list,
+                        "follower": follower,
+                        "watched": watched,
+                        "limit": config.MONGO_DOC_LIMIT,
+                        "offset": offset,
+                        "end_url": "",
+                        "data": []
+                    })
                 if config.QUESTION_ADD_ANSWER_ID:
                     html_parser.url_manager.add_id(config.ANSWER_ID_SET, data["id"])
-                if data_saver.mg_data_db.find_one({"result.id": data["id"]}) and data_saver.mg_data_db.find_one({"result.updated_time": data['updated_time']}):
+                if data_saver.mg_data_db.find_one({"data.id": data["id"]}) and data_saver.mg_data_db.find_one({"data.updated_time": data['updated_time']}):
                     continue
                 try:
                     data.pop("excerpt")
@@ -119,7 +146,7 @@ def spider(question_id: str):
                             html_downloader.img_download(img_path, img_url)
                 except:
                     logger.error("Answer:{0}, Message: 图片下载失败".format(data["id"]))
-                data_saver.mg_data_db.update_one({"QuestionId": question_id}, {'$addToSet': {"result": data}})
+                data_saver.mg_data_db.update_one({"QuestionId": question_id, "offset": offset}, {'$addToSet': {"data": data}})
                 try:
                     if data["author"]["url_token"] is not "":
                         html_parser.url_manager.add_id(id_set=config.USER_ID_SET, _id=data["author"]["url_token"])
@@ -129,7 +156,7 @@ def spider(question_id: str):
             # 游标，下个数据包URL
             if question_json["paging"]["is_end"]:
                 logger.info("Question id {0} is complete! ".format(question_id))
-                data_saver.mg_data_db.update_one({"QuestionId": question_id}, {"$set": {"end_url": url}})
+                data_saver.mg_data_db.update_one({"QuestionId": question_id, "offset": offset}, {"$set": {"end_url": url}})
                 break
 
             next_url = question_json["paging"]["next"]

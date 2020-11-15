@@ -21,6 +21,7 @@ data_saver = SpiderFrame.DataSaver(db_name=config.DB_NAME, set_name=config.COMME
 
 def spider(answer_id: str) -> None:
     # 增量爬取评论
+    offset = config.MONGO_DOC_LIMIT
     logger.info("Get comments for answer id: {0}".format(answer_id))
     url = "https://www.zhihu.com/api/v4/answers/{}/root_comments?limit=10&offset=0&order=normal&status=open" \
         .format(answer_id)
@@ -33,26 +34,49 @@ def spider(answer_id: str) -> None:
         data_saver.mongo_insert({
             "AnswerID": answer_id,
             "common_counts": res['paging']['totals'],
-            "result": []
+            "limit": config.MONGO_DOC_LIMIT,
+            "offset": offset,
+            "end_url": "",
+            "data": []
         })
 
     try:
         while url_manager.list_not_null():
             sleep(.3)
-            res = html_downloader.download(url_manager.get())
+            url = url_manager.get()
+            try:
+                res = html_downloader.download(url)
+            except SpiderFrame.exception.RequestRetryError as e:
+                logger.error(e, exc_info=True)
+                url_manager.add_url(url)
+                sleep(1)
+                continue
             res = json_lds(res)
             for data in res['data']:
-                if data_saver.mg_data_db.find_one({"result.id": data["id"]}):
+                if len(data_saver.mg_data_db.find_one({"AnswerID": answer_id, "offset": offset})["data"]) >= 5000:
+                    logger.warning("MongoDB document out of limit, Create new document and update offset")
+                    offset += config.MONGO_DOC_LIMIT
+                    data_saver.mongo_insert({
+                        "AnswerID": answer_id,
+                        "common_counts": res['paging']['totals'],
+                        "limit": config.MONGO_DOC_LIMIT,
+                        "offset": offset,
+                        "end_url": "",
+                        "data": []
+                    })
+                if data_saver.mg_data_db.find_one({"data.id": data["id"]}):
                     # 已经存在的，不存储
                     continue
-                data_saver.mg_data_db.update_one({"AnswerID": answer_id}, {'$addToSet': {"result": data}})
+                data_saver.mg_data_db.update_one({"AnswerID": answer_id, "offset": offset}, {'$addToSet': {"data": data}})
                 try:
                     if data["author"]["url_token"] is not "":
                         url_manager.add_id(id_set=config.USER_ID_SET, _id=data["author"]["member"]["url_token"])
                 except:
                     pass
+
             if res['paging']['is_end']:
                 logger.info("Paging is end, exit")
+                data_saver.mg_data_db.update_one({"AnswerID": answer_id, "offset": offset}, {"$set": {"end_url": url}})
                 break
             url = res['paging']['next']
             url_manager.add_url(url)

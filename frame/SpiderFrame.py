@@ -6,19 +6,29 @@
                  v0.3 加入Redis支持，UrlManager使用Redis运行大型项目可以断点续爬，DataSaver使用Redis解决硬盘I/O低影响爬虫速度
 """
 import threading
+import random
+
 import pandas as pd
 import requests
 import redis
 import socket
 import logging
 import time
+
 import config
 from os import path
 
 redis = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, password=config.REDIS_PASSWORD)
 
 
-class exception(Exception):
+class exception:
+    class RequestRetryError(Exception):
+        def __init__(self):
+            super().__init__()
+
+        def __str__(self):
+            return "发起过多次失败的Requests请求"
+
     class UserNotExist(Exception):
         def __init__(self):
             super().__init__()
@@ -84,12 +94,12 @@ class Proxies(threading.Thread):
         super().__init__()
         # 线程运行标志
         self.__thread__flag = True
-        self.get_proxies_api = "http://api.xdaili.cn/xdaili-api/greatRecharge/getGreatIp?spiderId" \
-                               "=192b9425f13c47ffbbe4a663c974608b&orderno=YZ2020219595449Wzor&returnType=2&count=1 "
+        self.get_proxies_api = "http://webapi.http.zhimacangku.com/getip?num=1&type=2&pro=0&city=0&yys=0&port=11&pack=125417&ts=1&ys=0&cs=0&lb=1&sb=0&pb=45&mr=2&regions=110000,130000,140000,310000,320000,330000,340000,350000,360000,370000,410000,420000,430000,440000,500000,510000,610000"
         self.Proxies = {
             "http": "",
             "https": ""
         }
+        self.live_time = config.PROXIES_LIVE_TIME
 
     # 结束线程
     def __exit__(self):
@@ -101,23 +111,24 @@ class Proxies(threading.Thread):
         i = 0
         for i in range(config.REQUEST_RETRY_TIMES):
             res = requests.get(self.get_proxies_api)
-            j = eval(res.text)
-            if j['ERRORCODE'] == '0':
-                self.Proxies['http'] = "http://" + j['RESULT'][0]['ip'] + ":" + j['RESULT'][0]['port']
-                self.Proxies['https'] = "http://" + j['RESULT'][0]['ip'] + ":" + j['RESULT'][0]['port']
+            j = eval(res.text.replace("true", "True").replace("false", "False").replace("null", "'null'"))
+            if j['code'] == 0:
+                self.Proxies['http'] = "http://" + j['data'][0]['ip'] + ":" + str(j['data'][0]['port'])
+                self.Proxies['https'] = "https://" + j['data'][0]['ip'] + ":" + str(j['data'][0]['port'])
+                self.live_time = int(time.mktime(time.strptime(j["data"][0]["expire_time"], "%Y-%m-%d %H:%M:%S"))) - time.time()
                 logger.info("Successfully get proxies")
                 return
             logger.warning("Failed, " + str(i + 1) + " times get proxies...")
-            time.sleep(5)
+            time.sleep(random.randrange(7, 13))
         if i == 4:
             logger.critical("Get proxies failed, exit program...")
 
     # 监测代理时间。如果超时更新代理
     def run(self) -> None:
         start_time = time.time()
+        self.get_proxies()
         while self.__thread__flag:
-            # 设置代理生存时间为60s
-            if start_time - time.time() > config.PROXIES_LIVE_TIME:
+            if time.time() - start_time > self.live_time:
                 logger.warning("proxies failure, get new one")
                 # 重设代理使用时长
                 start_time = time.time()
@@ -204,7 +215,6 @@ class HtmlDownloader(threading.Thread):
     def download(self, url: str, params=None) -> str:
         if url == "":
             raise exception.UrlEmptyException
-        res = ''  # 没啥用，消除警告而已
         if params is None:
             params = {}
         for i in range(config.REQUEST_RETRY_TIMES):
@@ -213,20 +223,25 @@ class HtmlDownloader(threading.Thread):
                                    timeout=3)
                 if res.status_code == 200:
                     return res.text
-                # 非200，更换代理，抛出异常
-                self.proxies.get_proxies()
                 res.raise_for_status()
             # 记录异常
             except requests.exceptions.HTTPError:
-                logger.error(u"HTTPError; Code {0}[{1}]".format(str(res.status_code), url))
+                logger.warning(
+                    "HTTPError with url:<{0}> retrying.....{1},{2}".format(url[:25] + " ... " + url[-15:], i + 1,
+                                                                           config.REQUEST_RETRY_TIMES))
             except requests.exceptions.Timeout:
-                logger.error(url + "; Timeout")
+                logger.warning(
+                    "Timeout with url:<{0}> retrying.....{1},{2}".format(url[:25] + " ... " + url[-15:], i + 1,
+                                                                         config.REQUEST_RETRY_TIMES))
+            except requests.exceptions.ProxyError:
+                self.proxies.get_proxies()
+                logger.error("Cannot connect to proxy.', timeout('timed out')", exc_info=True)
+                time.sleep(10)
             except Exception:
-                logger.error("Undefined Error [{0}]".format(url))
-            # 请求失败，更换代理，重试
-            self.proxies.get_proxies()
-            logger.warning("downloading error , retrying.....{0},3".format(i + 1))
+                logger.error("Undefined Error [{0}]".format(url), exc_info=True)
+        self.proxies.get_proxies()
         logger.critical("requests.exceptions.RetryError [{0}]".format(url), exc_info=True)
+        time.sleep(10)
         raise requests.exceptions.RetryError
 
     def img_download(self, dir_path: str, url: str) -> None:

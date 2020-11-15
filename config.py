@@ -1,10 +1,14 @@
 # - global -
 DB_NAME = "知乎"
+
 USE_REDIS = True    # 如果设置为False，后面的*_ADD_*_ID都将失效
 REDIS_HOST = "192.168.100.101"
 REDIS_PORT = 6379
 REDIS_PASSWORD = None
+
 MONGO_CONNECTION = "mongodb://localhost:27017/"
+MONGO_DOC_LIMIT = 5000  # 每个文档最多存储5000条data
+
 PROXIES_LIVE_TIME = 60
 REQUEST_RETRY_TIMES = 5
 SOCKET_DEFAULT_TIMEOUT = 20     # 整个request生命周期

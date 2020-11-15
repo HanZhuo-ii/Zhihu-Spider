@@ -89,14 +89,14 @@ def search(keyword):
     if not data_saver.mg_data_db.find_one({"KeyWord": KWD}):
         data_saver.mongo_insert({
             "KeyWord": KWD,
-            "result": []
+            "data": []
         })
 
     while True:
         res = json.loads(res)
         logger.info("Saving Data To MongoDB")
         for data in res['data']:
-            data_saver.mg_data_db.update_one({"KeyWord": KWD}, {'$addToSet': {"result": data}})
+            data_saver.mg_data_db.update_one({"KeyWord": KWD}, {'$addToSet': {"data": data}})
             html_parser.parse(data)
         if res['paging']['is_end']:
             logger.info("Paging is end, exit")

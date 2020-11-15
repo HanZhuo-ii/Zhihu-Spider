@@ -40,7 +40,7 @@ class TopicSpider(Thread):
         except Exception as e:
             # 之前的报错信息已被记录
             logger.critical("Unexpected Exit TopicSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
-            send_mail("TopicSpider发生意料之外的错误，已退出线程")
+            # send_mail("TopicSpider发生意料之外的错误，已退出线程")
         finally:
             logger.warning("TopicSpider finished with exit code 0")
             topic.html_downloader.proxies.__exit__()
@@ -50,14 +50,20 @@ class QuestionSpider(Thread):
     def __init__(self):
         logger.info("QuestionSpider init...")
         super().__init__()
+
+        self.flag = True
         # url_manager方法已经内置，只需要使用id_manager传入ID参数即可
         self.id_manager = SpiderFrame.UrlManager(db_set_name=config.QUESTION_ID_SET, use_redis=config.USE_REDIS)
+
+    def __exit__(self):
+        logger.warning("强制终止线程: QuestionSpider")
+        self.flag = False
 
     def run(self):
         logger.info("QuestionSpider thread start...")
         _id = ''
         try:
-            while True:
+            while self.flag:
                 if self.id_manager.list_not_null():
                     _id = self.id_manager.get()
                     question.spider(_id)
@@ -66,7 +72,7 @@ class QuestionSpider(Thread):
         except Exception as e:
             # 之前的报错信息已被记录
             logger.critical("Unexpected Exit QuestionSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
-            send_mail("QuestionSpider发生意料之外的错误，已退出线程")
+            # send_mail("QuestionSpider发生意料之外的错误，已退出线程")
         finally:
             logger.warning("QuestionSpider finished with exit code 0")
             question.html_downloader.proxies.__exit__()
@@ -76,8 +82,14 @@ class CommentSpider(Thread):
     def __init__(self):
         logger.info("CommentSpider init...")
         super().__init__()
+
+        self.flag = True
         # url_manager方法已经内置，只需要使用id_manager传入ID参数即可
         self.id_manager = SpiderFrame.UrlManager(db_set_name=config.ANSWER_ID_SET, use_redis=config.USE_REDIS)
+
+    def __exit__(self):
+        logger.warning("强制终止线程: CommentSpider")
+        self.flag = False
 
     def run(self):
         _id = ''
@@ -92,7 +104,7 @@ class CommentSpider(Thread):
         except Exception as e:
             # 之前的报错信息已被记录
             logger.critical("Unexpected Exit CommentSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
-            send_mail("CommentSpider发生意料之外的错误，已退出线程")
+            # send_mail("CommentSpider发生意料之外的错误，已退出线程")
         finally:
             logger.warning("CommentSpider finished with exit code 0")
             comment.html_downloader.proxies.__exit__()
@@ -102,8 +114,14 @@ class UserSpider(Thread):
     def __init__(self):
         logger.info("UserSpider init...")
         super().__init__()
+
+        self.flag = True
         # url_manager方法已经内置，只需要使用id_manager传入ID参数即可
         self.id_manager = SpiderFrame.UrlManager(db_set_name=config.USER_ID_SET, use_redis=config.USE_REDIS)
+
+    def __exit__(self):
+        logger.warning("强制终止线程: UserSpider")
+        self.flag = False
 
     def run(self):
         logger.info("UserSpider thread start...")
@@ -118,10 +136,11 @@ class UserSpider(Thread):
         except Exception as e:
             # 之前的报错信息已被记录
             logger.critical("Unexpected Exit UserSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
-            send_mail("UserSpider发生意料之外的错误，已退出线程")
+            # send_mail("UserSpider发生意料之外的错误，已退出线程")
         finally:
             logger.warning("UserSpider finished with exit code 0")
             user.html_downloader.proxies.__exit__()
+
 
 
 if __name__ == '__main__':
@@ -131,21 +150,21 @@ if __name__ == '__main__':
     US = UserSpider()
 
     TS.start()
-    logger.info("Next thread will be start after 10s")
-    sleep(10)
+    logger.info("Next thread will be start after 7.5s")
+    sleep(7.5)
     QS.start()
-    logger.info("Next thread will be start after 10s")
-    sleep(10)
+    logger.info("Next thread will be start after 7.5s")
+    sleep(7.5)
     CS.start()
-    logger.info("Next thread will be start after 10s")
-    sleep(10)
+    logger.info("Next thread will be start after 7.5s")
+    sleep(7.5)
     US.start()
 
     logger.warning("爬虫进程启动完成，启动监控进程")
     # watching
+    TS_i = QS_i = CS_i = US_i = 1
     while True:
-        TS_i = QS_i = CS_i = US_i = 1
-        if not TS.is_alive() and (redis.llen(config.TOPIC_ID_SET) or redis.llen(config.TOPIC_SET)):
+        if TS_i != 3 and not TS.is_alive() and (redis.llen("list_"+config.TOPIC_ID_SET) or redis.llen("list_"+config.TOPIC_SET)):
             for i in range(1, 4):
                 if TS.is_alive():
                     continue
@@ -156,7 +175,7 @@ if __name__ == '__main__':
                 if i == 3 and not TS.is_alive():
                     logger.error("Active thread TS failed")
                     send_mail("TS is exit and try to activate it failed")
-        if not QS.is_alive() and (redis.llen(config.QUESTION_ID_SET) or redis.llen(config.QUESTION_SET)):
+        if QS_i != 3 and not QS.is_alive() and (redis.llen("list_"+config.QUESTION_ID_SET) or redis.llen("list_"+config.QUESTION_SET)):
             for i in range(1, 4):
                 if QS.is_alive():
                     QS_i = 1
@@ -168,7 +187,7 @@ if __name__ == '__main__':
                 if i == 3 and not QS.is_alive():
                     logger.error("----- Active thread QS failed -----")
                     send_mail("QS is exit and try to activate it failed")
-        if not CS.is_alive() and (redis.llen(config.ANSWER_ID_SET) or redis.llen(config.COMMENT_SET)):
+        if CS_i != 3 and not CS.is_alive() and (redis.llen("list_"+config.ANSWER_ID_SET) or redis.llen("list_"+config.COMMENT_SET)):
             for i in range(1, 4):
                 if CS.is_alive():
                     CS_i = 1
@@ -180,7 +199,7 @@ if __name__ == '__main__':
                 if i == 3 and not CS.is_alive():
                     logger.error("----- Active thread CS failed -----")
                     send_mail("CS is exit and try to activate it failed")
-        if not US.is_alive() and redis.llen(config.USER_ID_SET):
+        if US_i != 3 and not US.is_alive() and redis.llen("list_"+config.USER_ID_SET):
             for i in range(1, 4):
                 if US.is_alive():
                     US_i = 1
