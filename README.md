@@ -1,7 +1,7 @@
 ﻿# Zhihu-Spider
  
  
-- utils和tools中的每个.py文件可作为单独程序运行
+**utils和tools中的每个.py文件可作为单独程序运行**
 
 **建议在 MongoDB + Redis 环境下运行**
 
