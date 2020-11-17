@@ -101,7 +101,10 @@ class Proxies(Thread):
         self.__main_thread__ = False  # 主代理线程运行
         self.__thread__flag = True  # 线程运行标志
         self.__proxies__ = ''
-        self.live_time = config.PROXIES_LIVE_TIME
+        if not config.USE_PROXIES:
+            self.live_time = 1905603107
+        else:
+            self.live_time = config.PROXIES_LIVE_TIME
         self.get_proxies_api = config.PROXIES_API
         self.Proxies = {
             "http": "",
@@ -144,6 +147,10 @@ class Proxies(Thread):
 
     # 监测代理时间。如果超时更新代理，同一时间只允许存在一个代理监控进程，其余只负责更新，读取已经存在的代理
     def run(self) -> None:
+        if not config.USE_PROXIES:
+            while True:
+                time.sleep(5)
+
         start_time = time.time()
         logger.info("------------ Run as following proxies thread ------------")
         while self.__thread__flag:
