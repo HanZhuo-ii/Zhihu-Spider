@@ -1,6 +1,7 @@
 # - global -
 DB_NAME = "知乎"  # MongoDB 数据库名称
 THREAD_ID = 1   # 每个线程单独使用一个代理，防止并发量过大造成代理无法连接
+MAIL_PASSWD = '邮箱密钥'
 
 # Redis
 USE_REDIS = True    # 如果设置为False，后面的*_ADD_*_ID将不会添加，
@@ -25,7 +26,7 @@ MONGO_DOC_LIMIT = 5000  # 每个文档最多存储5000条data, 否则会造成�
 
 # 代理与网络请求部分
 USE_PROXIES = True
-PROXIES_API = "填写您的代理"
+PROXIES_API = "代理API"
 PROXIES_LIVE_TIME = 60
 REQUEST_RETRY_TIMES = 5
 SOCKET_DEFAULT_TIMEOUT = 20     # 整个request生命周期
