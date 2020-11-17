@@ -110,7 +110,7 @@ def spider(question_id: str):
                 logger.error(e, exc_info=True)
                 redis.set(question_id, url)
                 sleep(1)
-                continue
+                return
             try:
                 question_json = json.loads(res)
             except:

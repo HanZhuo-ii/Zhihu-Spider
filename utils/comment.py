@@ -52,7 +52,7 @@ def spider(answer_id: str) -> None:
             except SpiderFrame.exception.RequestRetryError as e:
                 logger.error(e, exc_info=True)
                 sleep(1)
-                continue
+                return
             res = json_lds(res)
             for data in res['data']:
                 if len(data_saver.mg_data_db.find_one({"AnswerID": answer_id, "offset": offset})["data"]) >= 5000:

@@ -286,13 +286,13 @@ class HtmlDownloader(Thread):
                     "Timeout with url:<{0}> retrying.....{1},{2}".format(url[:25] + " ... " + url[-15:], i,
                                                                          config.REQUEST_RETRY_TIMES))
             except requests.exceptions.ProxyError:
+                self.proxies.need_update()
                 logger.error("Cannot connect to proxy.', timeout('timed out')")
             except Exception:
                 logger.error("Undefined Error [{0}]".format(url), exc_info=True)
-            if error == 3:
-                self.proxies.need_update()
+            # if error == 4:
+            #     self.proxies.need_update()
             time.sleep(5)
-        self.proxies.need_update()
         logger.critical("requests.exceptions.RetryError [{0}]".format(url))
         time.sleep(10)
         raise requests.exceptions.RetryError

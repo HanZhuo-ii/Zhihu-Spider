@@ -10,6 +10,7 @@
 import redis
 import config
 from time import sleep
+from requests import exceptions
 from threading import Thread
 from frame import SpiderFrame
 from frame.mail import send_mail
@@ -33,7 +34,10 @@ class TopicSpider(Thread):
         try:
             while self.id_manager.list_not_null():
                 _id = self.id_manager.get()
-                topic.spider(_id)
+                try:
+                    topic.spider(_id)
+                except exceptions.RetryError:
+                    continue
             self.exit_code = 0
         except Exception as e:
             # 之前的报错信息已被记录
@@ -66,7 +70,10 @@ class QuestionSpider(Thread):
             while self.flag:
                 if self.id_manager.list_not_null():
                     _id = self.id_manager.get()
-                    question.spider(_id)
+                    try:
+                        question.spider(_id)
+                    except exceptions.RetryError:
+                        continue
                 else:
                     sleep(5)
             self.exit_code = 0
@@ -101,7 +108,10 @@ class CommentSpider(Thread):
             while True:
                 if self.id_manager.list_not_null():
                     _id = self.id_manager.get()
-                    comment.spider(_id)
+                    try:
+                        comment.spider(_id)
+                    except exceptions.RetryError:
+                        continue
                 else:
                     sleep(5)
             self.exit_code = 0
@@ -136,7 +146,10 @@ class UserSpider(Thread):
             while True:
                 if self.id_manager.list_not_null():
                     _id = self.id_manager.get()
-                    user.spider(_id)
+                    try:
+                        user.spider(_id)
+                    except exceptions.RetryError:
+                        continue
                 else:
                     sleep(5)
             self.exit_code = 0
@@ -196,8 +209,7 @@ class running(Thread):
         # watching
         TS_i = QS_i = CS_i = US_i = 1
         while True:
-            if TS.exit_code is 0 and not TS.is_alive() and (
-                    redis.llen("list_" + config.TOPIC_ID_SET) or redis.llen("list_" + config.TOPIC_SET)):
+            if TS.exit_code == 0 and not TS.is_alive():
                 for i in range(1, 4):
                     if TS.is_alive():
                         continue
@@ -208,8 +220,7 @@ class running(Thread):
                     if i == 3 and not TS.is_alive():
                         logger.error("Active thread TS failed")
                         send_mail("TS is exit and try to activate it failed")
-            if QS.exit_code is 0 and not QS.is_alive() and (
-                    redis.llen("list_" + config.QUESTION_ID_SET) or redis.llen("list_" + config.QUESTION_SET)):
+            if QS.exit_code == 0 and not QS.is_alive():
                 for i in range(1, 4):
                     if QS.is_alive():
                         QS_i = 1
@@ -221,8 +232,7 @@ class running(Thread):
                     if i == 3 and not QS.is_alive():
                         logger.error("----- Active thread QS failed -----")
                         send_mail("QS is exit and try to activate it failed")
-            if CS.exit_code is 0 and not CS.is_alive() and (
-                    redis.llen("list_" + config.ANSWER_ID_SET) or redis.llen("list_" + config.COMMENT_SET)):
+            if CS.exit_code == 0 and not CS.is_alive():
                 for i in range(1, 4):
                     if CS.is_alive():
                         CS_i = 1
@@ -234,7 +244,7 @@ class running(Thread):
                     if i == 3 and not CS.is_alive():
                         logger.error("----- Active thread CS failed -----")
                         send_mail("CS is exit and try to activate it failed")
-            if US.exit_code is 0 and not US.is_alive() and redis.llen("list_" + config.USER_ID_SET):
+            if US.exit_code == 0 and not US.is_alive():
                 for i in range(1, 4):
                     if US.is_alive():
                         US_i = 1

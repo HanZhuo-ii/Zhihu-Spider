@@ -69,7 +69,7 @@ def spider(topic_id: str):
             except SpiderFrame.exception.RequestRetryError as e:
                 logger.error(e, exc_info=True)
                 sleep(1)
-                continue
+                return
             topic_json = json.loads(res)
 
             for data in topic_json["data"]:
