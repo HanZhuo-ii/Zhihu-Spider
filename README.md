@@ -1,6 +1,7 @@
-﻿# Zhihu-Spider
+# Zhihu-Spider
  
- 
+> 最初版本功能可能不够完善，欢迎提Issues
+
 **utils和tools中的每个.py文件可作为单独程序运行**
 
 **建议在 MongoDB + Redis 环境下运行**
