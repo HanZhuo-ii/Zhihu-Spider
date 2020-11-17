@@ -5,11 +5,12 @@
                  v0.2 加入MongoDB存储功能，支持MongoDB自增ID
                  v0.3 加入Redis支持，UrlManager使用Redis运行大型项目可以断点续爬，DataSaver使用Redis解决硬盘I/O低影响爬虫速度
 """
-from os import path
+
 from redis import Redis
 from threading import Thread
 from pandas import DataFrame
 from random import randrange
+from os import path, makedirs
 from socket import setdefaulttimeout
 
 import requests
@@ -65,6 +66,8 @@ class exception:
 
 
 def custom_logger(__name__):
+    if not path.exists(config.LOG_PATH):
+        makedirs(config.LOG_PATH)
     # 创建log
     log = logging.getLogger()
     log.setLevel(logging.INFO)  # Log等级总开关
