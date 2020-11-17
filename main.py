@@ -173,6 +173,7 @@ class running(Thread):
         super(running, self).__init__()
 
     def run(self):
+        
         TS = TopicSpider()
         QS = QuestionSpider()
         CS = CommentSpider()
@@ -254,5 +255,6 @@ class running(Thread):
 
 
 if __name__ == '__main__':
+    redis.delete("ProxiesThreadCode_{0}".format(config.THREAD_ID))
     r1 = running()
     r1.start()

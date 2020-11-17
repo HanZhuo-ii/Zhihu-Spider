@@ -147,6 +147,7 @@ class Proxies(Thread):
         if self.__proxies__ != temp:
             self.Proxies['http'] = "http://" + temp
             self.Proxies['https'] = "http://" + temp
+            self.__proxies__ = temp
 
     # 监测代理时间。如果超时更新代理，同一时间只允许存在一个代理监控进程，其余只负责更新，读取已经存在的代理
     def run(self) -> None:
@@ -163,8 +164,7 @@ class Proxies(Thread):
                 self.__main_thread__ = True  # 以主线运行标志
                 logger.info("------------ Switch to main proxies thread ------------")
 
-            if self.__main_thread__ and (
-                    time.time() - start_time > self.live_time or redis.get("ProxiesThreadCode_{0}".format(config.THREAD_ID)).decode("utf-8") == "2"):
+            if self.__main_thread__ and (time.time() - start_time > self.live_time or redis.get("ProxiesThreadCode_{0}".format(config.THREAD_ID)).decode("utf-8") == "2"):
                 logger.warning("Proxies failure, get new one")
                 # 重设代理使用时长
                 start_time = time.time()
