@@ -78,33 +78,32 @@ def spider(question_id: str):
     url = ""
     offset = config.MONGO_DOC_LIMIT
     try:
-        if question_id is not None and question_id is not "":
-            # 初始化URL队列，如果之前已经爬过，添加不进去，继续上次断点
-            redis.set(question_id, _init_url_(question_id))
+        # 初始化URL队列，如果之前已经爬过，添加不进去，继续上次断点
+        redis.set(question_id, _init_url_(question_id))
 
-            # question base info
-            url = "https://www.zhihu.com/question/" + question_id
-            res = html_downloader.download(url)
-            title, question, tag_list, follower, watched = html_parser.parse_base_question_info(res)
+        # question base info
+        url = "https://www.zhihu.com/question/" + question_id
+        res = html_downloader.download(url)
+        title, question, tag_list, follower, watched = html_parser.parse_base_question_info(res)
 
-            if not data_saver.mg_data_db.find_one({"QuestionId": question_id, "offset": offset}):
-                data_saver.mongo_insert({
-                    "QuestionId": question_id,
-                    "title": title,
-                    "question": question,
-                    "tag_list": tag_list,
-                    "follower": follower,
-                    "watched": watched,
-                    "limit": config.MONGO_DOC_LIMIT,
-                    "offset": offset,
-                    "end_url": "",
-                    "data": []
-                })
+        if not data_saver.mg_data_db.find_one({"QuestionId": question_id, "offset": offset}):
+            data_saver.mongo_insert({
+                "QuestionId": question_id,
+                "title": title,
+                "question": question,
+                "tag_list": tag_list,
+                "follower": follower,
+                "watched": watched,
+                "limit": config.MONGO_DOC_LIMIT,
+                "offset": offset,
+                "end_url": "",
+                "data": []
+            })
 
         # question detail
         while True:
             sleep(.3)
-            url = redis.get(question_id)
+            url = redis.get(question_id).decode("utf-8")
             try:
                 res = html_downloader.download(url)
             except SpiderFrame.exception.RequestRetryError as e:
@@ -169,9 +168,7 @@ def spider(question_id: str):
 
     except Exception as e:
         logger.critical("Fatal Error, Message:{0}, With url: <{0}>, Saving data and exit".format(e, url), exc_info=True)
-        # html_parser.url_manager.force_add_url(url)
         html_parser.url_manager.add_id(id_set=config.QUESTION_ID_SET, _id=question_id)
-        # send_mail("Fatal Error With url: <{0}>, Message:{1}".format(url, e))
         # 结束线程
         logger.error("Kill Proxies")
         html_downloader.proxies.__exit__()

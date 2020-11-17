@@ -1,5 +1,6 @@
 # - global -
 DB_NAME = "知乎"
+THREAD_ID = 1
 
 USE_REDIS = True    # 如果设置为False，后面的*_ADD_*_ID都将失效
 REDIS_HOST = "192.168.100.101"
@@ -9,6 +10,7 @@ REDIS_PASSWORD = None
 MONGO_CONNECTION = "mongodb://localhost:27017/"
 MONGO_DOC_LIMIT = 5000  # 每个文档最多存储5000条data
 
+PROXIES_API = "http://webapi.http.zhimacangku.com/getip?num=1&type=2&pro=0&city=0&yys=0&port=1&time=1&ts=1&ys=0&cs=0&lb=1&sb=0&pb=45&mr=1&regions=110000,130000,140000,310000,320000,330000,340000,360000,370000,410000,420000,430000,440000,500000,510000,610000"
 PROXIES_LIVE_TIME = 60
 REQUEST_RETRY_TIMES = 5
 SOCKET_DEFAULT_TIMEOUT = 20     # 整个request生命周期

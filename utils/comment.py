@@ -25,12 +25,12 @@ def spider(answer_id: str) -> None:
     # 增量爬取评论
     offset = config.MONGO_DOC_LIMIT
     logger.info("Get comments for answer id: {0}".format(answer_id))
-    if not(answer_id is None or answer_id is ""):
-        url = "https://www.zhihu.com/api/v4/answers/{}/root_comments?limit=10&offset=0&order=normal&status=open" \
-            .format(answer_id)
-        res = html_downloader.download(url)
-        res = json_lds(res)
-        redis.set(answer_id, url)
+
+    url = "https://www.zhihu.com/api/v4/answers/{}/root_comments?limit=10&offset=0&order=normal&status=open" \
+        .format(answer_id)
+    res = html_downloader.download(url)
+    res = json_lds(res)
+    redis.set(answer_id, url)
 
     if not data_saver.mg_data_db.find_one({"AnswerID": answer_id}):
         logger.info("This answer's comments don't exist, creating")
@@ -51,7 +51,6 @@ def spider(answer_id: str) -> None:
                 res = html_downloader.download(url)
             except SpiderFrame.exception.RequestRetryError as e:
                 logger.error(e, exc_info=True)
-                # url_manager.add_url(url)
                 sleep(1)
                 continue
             res = json_lds(res)
@@ -87,13 +86,11 @@ def spider(answer_id: str) -> None:
 
     except Exception as e:
         logger.critical("Fatal Error, Message:{0}, With url: <{0}>, Saving data and exit".format(e, url), exc_info=True)
-        # url_manager.force_add_url(url)
         url_manager.add_id(id_set=config.ANSWER_ID_SET, _id=answer_id)
         # exit
         logger.error("Kill Proxies")
         html_downloader.proxies.__exit__()
         logger.error("Process finished with exit code -1")
-        # send_mail("Fatal Error With url: <{0}>, Message:{1}".format(url, e))
         raise SpiderFrame.exception.UnexpectedError
 
 

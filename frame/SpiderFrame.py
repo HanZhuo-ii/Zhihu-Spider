@@ -102,7 +102,7 @@ class Proxies(Thread):
         self.__thread__flag = True  # 线程运行标志
         self.__proxies__ = ''
         self.live_time = config.PROXIES_LIVE_TIME
-        self.get_proxies_api = "http://http.tiqu.alicdns.com/getip3?num=1&type=2&pro=0&city=0&yys=0&port=11&pack=125417&ts=1&ys=0&cs=0&lb=1&sb=0&pb=45&mr=1&regions=110000,130000,140000,310000,320000,330000,340000,350000,360000,370000,410000,420000,430000,440000,500000,510000,610000&gm=4"
+        self.get_proxies_api = config.PROXIES_API
         self.Proxies = {
             "http": "",
             "https": ""
@@ -112,13 +112,11 @@ class Proxies(Thread):
     def __exit__(self):
         logger.info("Exit Proxies with code 0")
         self.__thread__flag = False
-        if self.__main_thread__:
-            redis.delete("ProxiesThreadCode")
 
     # 如果代理失效，通知进程主动更新代理
     @staticmethod
     def need_update():
-        redis.set("ProxiesThreadCode", "2")
+        redis.set("ProxiesThreadCode_{0}".format(config.THREAD_ID), "2")
 
     def get_proxies(self):
         i = 0
@@ -126,7 +124,7 @@ class Proxies(Thread):
             res = requests.get(self.get_proxies_api)
             j = eval(res.text.replace("true", "True").replace("false", "False").replace("null", "'null'"))
             if j['code'] == 0:
-                redis.set("Proxies", j['data'][0]['ip'] + ":" + str(j['data'][0]['port']))
+                redis.set("Proxies_{0}".format(config.THREAD_ID), j['data'][0]['ip'] + ":" + str(j['data'][0]['port']))
                 self.live_time = int(
                     time.mktime(time.strptime(j["data"][0]["expire_time"], "%Y-%m-%d %H:%M:%S"))) - time.time()
                 logger.info("Successfully get proxies")
@@ -139,10 +137,10 @@ class Proxies(Thread):
             logger.critical("Get proxies failed, exit program...")
 
     def update_self_proxies(self):
-        temp = redis.get("Proxies").decode("utf-8")
+        temp = redis.get("Proxies_{0}".format(config.THREAD_ID)).decode("utf-8")
         if self.__proxies__ != temp:
             self.Proxies['http'] = "http://" + temp
-            self.Proxies['https'] = "https://" + temp
+            self.Proxies['https'] = "http://" + temp
 
     # 监测代理时间。如果超时更新代理，同一时间只允许存在一个代理监控进程，其余只负责更新，读取已经存在的代理
     def run(self) -> None:
@@ -150,23 +148,29 @@ class Proxies(Thread):
         logger.info("------------ Run as following proxies thread ------------")
         while self.__thread__flag:
 
-            if redis.get("ProxiesThreadCode") is None:
-                redis.set("ProxiesThreadCode", "2")  # 抢占代理主线
+            if redis.get("ProxiesThreadCode_{0}".format(config.THREAD_ID)) is None:
+                redis.set("ProxiesThreadCode_{0}".format(config.THREAD_ID), "2")  # 抢占代理主线
                 self.__main_thread__ = True  # 以主线运行标志
                 logger.info("------------ Switch to main proxies thread ------------")
 
             if self.__main_thread__ and (
-                    time.time() - start_time > self.live_time or redis.get("ProxiesThreadCode").decode("utf-8") == "2"):
+                    time.time() - start_time > self.live_time or redis.get("ProxiesThreadCode_{0}".format(config.THREAD_ID)).decode("utf-8") == "2"):
                 logger.warning("Proxies failure, get new one")
                 # 重设代理使用时长
                 start_time = time.time()
                 self.get_proxies()
                 self.update_self_proxies()
-                redis.set("ProxiesThreadCode", "1")
+                redis.set("ProxiesThreadCode_{0}".format(config.THREAD_ID), "1")
             elif not self.__main_thread__:
                 self.update_self_proxies()
 
             time.sleep(1)
+
+        if self.__main_thread__:
+            redis.delete("ProxiesThreadCode_{0}".format(config.THREAD_ID))
+            logger.warning("--------- Main proxies thread ---------")
+        else:
+            logger.warning("--------- Following proxies thread ---------")
 
 
 class UrlManager(object):
