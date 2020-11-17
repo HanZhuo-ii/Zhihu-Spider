@@ -141,6 +141,33 @@ class UserSpider(Thread):
             user.html_downloader.proxies.__exit__()
 
 
+class ProcessError(Thread):
+    def __init__(self):
+        super().__init__()
+        self.__thread__running__tag__ = True
+
+    def __exit__(self):
+        logger.warning("Exit ProcessError Thread...")
+        self.__thread__running__tag__ = False
+
+    def run(self):
+        while self.__thread__running__tag__:
+            keys = redis.keys("*")
+            for key in keys:
+                try:
+                    int(key)
+                    url = redis.get(key).decode("utf-8").split("/")
+                    if url[5] == "answers":
+                        redis.rpush(config.ANSWER_ID_SET, url[5])
+                    elif url[5] == "questions":
+                        redis.rpush(config.QUESTION_ID_SET, url[5])
+                    elif url[5] == "topics":
+                        redis.rpush(config.TOPIC_ID_SET, url[5])
+                except:
+                    pass
+            sleep(10)
+
+
 class running(Thread):
     def __init__(self):
         super(running, self).__init__()
@@ -150,8 +177,10 @@ class running(Thread):
         QS = QuestionSpider()
         CS = CommentSpider()
         US = UserSpider()
+        PE = ProcessError()
 
         TS.start()
+        PE.start()
         logger.info("Next thread will be start after 7.5s")
         sleep(7.5)
         QS.start()
@@ -217,7 +246,9 @@ class running(Thread):
                         logger.error("----- Active thread US failed -----")
                         send_mail("US is exit and try to activate it failed")
             if not (TS.is_alive() or QS.is_alive() or CS.is_alive() or US.is_alive()):
+                PE.__exit__()
                 logger.critical("----- All thread exited and can't be actived, main thread is exiting -----")
+                return
             if TS.is_alive() and QS.is_alive() and CS.is_alive() and US.is_alive():
                 logger.info("----- ALL THREAD IS ALIVE -----")
             sleep(10)
