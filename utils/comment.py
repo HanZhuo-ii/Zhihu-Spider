@@ -10,6 +10,7 @@
 from frame import SpiderFrame
 from json import loads as json_lds
 from time import sleep
+from redis import Redis
 import config
 
 
@@ -17,17 +18,19 @@ logger = SpiderFrame.logger
 html_downloader = SpiderFrame.HtmlDownloader()
 url_manager = SpiderFrame.UrlManager(use_redis=config.USE_REDIS, db_set_name=config.COMMENT_SET)
 data_saver = SpiderFrame.DataSaver(db_name=config.DB_NAME, set_name=config.COMMENT_SET)
+redis = Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, password=config.REDIS_PASSWORD)
 
 
 def spider(answer_id: str) -> None:
     # 增量爬取评论
     offset = config.MONGO_DOC_LIMIT
     logger.info("Get comments for answer id: {0}".format(answer_id))
-    url = "https://www.zhihu.com/api/v4/answers/{}/root_comments?limit=10&offset=0&order=normal&status=open" \
-        .format(answer_id)
-    res = html_downloader.download(url)
-    res = json_lds(res)
-    url_manager.add_url(url)
+    if not(answer_id is None or answer_id is ""):
+        url = "https://www.zhihu.com/api/v4/answers/{}/root_comments?limit=10&offset=0&order=normal&status=open" \
+            .format(answer_id)
+        res = html_downloader.download(url)
+        res = json_lds(res)
+        redis.set(answer_id, url)
 
     if not data_saver.mg_data_db.find_one({"AnswerID": answer_id}):
         logger.info("This answer's comments don't exist, creating")
@@ -41,14 +44,14 @@ def spider(answer_id: str) -> None:
         })
 
     try:
-        while url_manager.list_not_null():
+        while True:
             sleep(.3)
-            url = url_manager.get()
+            url = redis.get(answer_id).decode("utf-8")
             try:
                 res = html_downloader.download(url)
             except SpiderFrame.exception.RequestRetryError as e:
                 logger.error(e, exc_info=True)
-                url_manager.add_url(url)
+                # url_manager.add_url(url)
                 sleep(1)
                 continue
             res = json_lds(res)
@@ -77,13 +80,14 @@ def spider(answer_id: str) -> None:
             if res['paging']['is_end']:
                 logger.info("Paging is end, exit")
                 data_saver.mg_data_db.update_one({"AnswerID": answer_id, "offset": offset}, {"$set": {"end_url": url}})
+                redis.delete(answer_id)
                 break
             url = res['paging']['next']
-            url_manager.add_url(url)
+            redis.set(answer_id, url)
 
     except Exception as e:
         logger.critical("Fatal Error, Message:{0}, With url: <{0}>, Saving data and exit".format(e, url), exc_info=True)
-        url_manager.force_add_url(url)
+        # url_manager.force_add_url(url)
         url_manager.add_id(id_set=config.ANSWER_ID_SET, _id=answer_id)
         # exit
         logger.error("Kill Proxies")

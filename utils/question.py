@@ -10,11 +10,13 @@ from frame import SpiderFrame
 from bs4 import BeautifulSoup
 from re import findall
 from os import path, makedirs
+from redis import Redis
 import json
 import config
 from time import sleep
 
 logger = SpiderFrame.logger
+redis = Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, password=config.REDIS_PASSWORD)
 
 
 class HtmlParser(SpiderFrame.HtmlParser):
@@ -76,37 +78,38 @@ def spider(question_id: str):
     url = ""
     offset = config.MONGO_DOC_LIMIT
     try:
-        # 初始化URL队列，如果之前已经爬过，添加不进去，继续上次断点
-        html_parser.url_manager.add_url(url=_init_url_(question_id))
+        if question_id is not None and question_id is not "":
+            # 初始化URL队列，如果之前已经爬过，添加不进去，继续上次断点
+            redis.set(question_id, _init_url_(question_id))
 
-        # question base info
-        url = "https://www.zhihu.com/question/" + question_id
-        res = html_downloader.download(url)
-        title, question, tag_list, follower, watched = html_parser.parse_base_question_info(res)
+            # question base info
+            url = "https://www.zhihu.com/question/" + question_id
+            res = html_downloader.download(url)
+            title, question, tag_list, follower, watched = html_parser.parse_base_question_info(res)
 
-        if not data_saver.mg_data_db.find_one({"QuestionId": question_id, "offset": offset}):
-            data_saver.mongo_insert({
-                "QuestionId": question_id,
-                "title": title,
-                "question": question,
-                "tag_list": tag_list,
-                "follower": follower,
-                "watched": watched,
-                "limit": config.MONGO_DOC_LIMIT,
-                "offset": offset,
-                "end_url": "",
-                "data": []
-            })
+            if not data_saver.mg_data_db.find_one({"QuestionId": question_id, "offset": offset}):
+                data_saver.mongo_insert({
+                    "QuestionId": question_id,
+                    "title": title,
+                    "question": question,
+                    "tag_list": tag_list,
+                    "follower": follower,
+                    "watched": watched,
+                    "limit": config.MONGO_DOC_LIMIT,
+                    "offset": offset,
+                    "end_url": "",
+                    "data": []
+                })
 
         # question detail
-        while html_parser.url_manager.list_not_null():
+        while True:
             sleep(.3)
-            url = html_parser.url_manager.get()
+            url = redis.get(question_id)
             try:
                 res = html_downloader.download(url)
             except SpiderFrame.exception.RequestRetryError as e:
                 logger.error(e, exc_info=True)
-                html_parser.url_manager.add_url(url)
+                redis.set(question_id, url)
                 sleep(1)
                 continue
             try:
@@ -157,15 +160,16 @@ def spider(question_id: str):
             if question_json["paging"]["is_end"]:
                 logger.info("Question id {0} is complete! ".format(question_id))
                 data_saver.mg_data_db.update_one({"QuestionId": question_id, "offset": offset}, {"$set": {"end_url": url}})
+                redis.delete(question_id)
                 break
 
             next_url = question_json["paging"]["next"]
             logger.info("New url has been find: <{0} ... {1}>".format(url[:21], url[-11:]))
-            html_parser.url_manager.add_url(next_url)
+            redis.set(question_id, next_url)
 
     except Exception as e:
         logger.critical("Fatal Error, Message:{0}, With url: <{0}>, Saving data and exit".format(e, url), exc_info=True)
-        html_parser.url_manager.force_add_url(url)
+        # html_parser.url_manager.force_add_url(url)
         html_parser.url_manager.add_id(id_set=config.QUESTION_ID_SET, _id=question_id)
         # send_mail("Fatal Error With url: <{0}>, Message:{1}".format(url, e))
         # 结束线程

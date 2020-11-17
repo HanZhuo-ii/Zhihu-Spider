@@ -5,20 +5,19 @@
                  v0.2 加入MongoDB存储功能，支持MongoDB自增ID
                  v0.3 加入Redis支持，UrlManager使用Redis运行大型项目可以断点续爬，DataSaver使用Redis解决硬盘I/O低影响爬虫速度
 """
-import threading
-import random
+from os import path
+from redis import Redis
+from threading import Thread
+from pandas import DataFrame
+from random import randrange
+from socket import setdefaulttimeout
 
-import pandas as pd
 import requests
-import redis
-import socket
 import logging
 import time
-
 import config
-from os import path
 
-redis = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, password=config.REDIS_PASSWORD)
+redis = Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, password=config.REDIS_PASSWORD)
 
 
 class exception:
@@ -57,12 +56,19 @@ class exception:
         def __str__(self):
             return "SOME FATAL ERROR HAS BEEN ACCORDED! "
 
+    class ProxiesPoolNull(Exception):
+        def __init__(self):
+            super().__init__()
+
+        def __str__(self):
+            return "代理已用完"
+
 
 def custom_logger(__name__):
     # 创建log
     log = logging.getLogger()
     log.setLevel(logging.INFO)  # Log等级总开关
-
+    logging.getLogger("requests").setLevel(logging.WARNING)
     # 创建handler，用于写入日志文件
     log_time = time.strftime('%Y-%m-%d', time.localtime(time.time()))
     log_file = path.join(config.LOG_PATH, log_time + '.log')
@@ -88,52 +94,79 @@ logger = custom_logger("Base")
 
 
 # 代理线程
-class Proxies(threading.Thread):
+class Proxies(Thread):
 
     def __init__(self):
         super().__init__()
-        # 线程运行标志
-        self.__thread__flag = True
-        self.get_proxies_api = "http://webapi.http.zhimacangku.com/getip?num=1&type=2&pro=0&city=0&yys=0&port=11&pack=125417&ts=1&ys=0&cs=0&lb=1&sb=0&pb=45&mr=2&regions=110000,130000,140000,310000,320000,330000,340000,350000,360000,370000,410000,420000,430000,440000,500000,510000,610000"
+        self.__main_thread__ = False  # 主代理线程运行
+        self.__thread__flag = True  # 线程运行标志
+        self.__proxies__ = ''
+        self.live_time = config.PROXIES_LIVE_TIME
+        self.get_proxies_api = "http://http.tiqu.alicdns.com/getip3?num=1&type=2&pro=0&city=0&yys=0&port=11&pack=125417&ts=1&ys=0&cs=0&lb=1&sb=0&pb=45&mr=1&regions=110000,130000,140000,310000,320000,330000,340000,350000,360000,370000,410000,420000,430000,440000,500000,510000,610000&gm=4"
         self.Proxies = {
             "http": "",
             "https": ""
         }
-        self.live_time = config.PROXIES_LIVE_TIME
 
     # 结束线程
     def __exit__(self):
         logger.info("Exit Proxies with code 0")
         self.__thread__flag = False
+        if self.__main_thread__:
+            redis.delete("ProxiesThreadCode")
 
     # 如果代理失效，通知进程主动更新代理
+    @staticmethod
+    def need_update():
+        redis.set("ProxiesThreadCode", "2")
+
     def get_proxies(self):
         i = 0
         for i in range(config.REQUEST_RETRY_TIMES):
             res = requests.get(self.get_proxies_api)
             j = eval(res.text.replace("true", "True").replace("false", "False").replace("null", "'null'"))
             if j['code'] == 0:
-                self.Proxies['http'] = "http://" + j['data'][0]['ip'] + ":" + str(j['data'][0]['port'])
-                self.Proxies['https'] = "https://" + j['data'][0]['ip'] + ":" + str(j['data'][0]['port'])
-                self.live_time = int(time.mktime(time.strptime(j["data"][0]["expire_time"], "%Y-%m-%d %H:%M:%S"))) - time.time()
+                redis.set("Proxies", j['data'][0]['ip'] + ":" + str(j['data'][0]['port']))
+                self.live_time = int(
+                    time.mktime(time.strptime(j["data"][0]["expire_time"], "%Y-%m-%d %H:%M:%S"))) - time.time()
                 logger.info("Successfully get proxies")
                 return
+            if j['code'] == 121:
+                raise exception.ProxiesPoolNull
             logger.warning("Failed, " + str(i + 1) + " times get proxies...")
-            time.sleep(random.randrange(7, 13))
+            time.sleep(randrange(0, 2))
         if i == 4:
             logger.critical("Get proxies failed, exit program...")
 
-    # 监测代理时间。如果超时更新代理
+    def update_self_proxies(self):
+        temp = redis.get("Proxies").decode("utf-8")
+        if self.__proxies__ != temp:
+            self.Proxies['http'] = "http://" + temp
+            self.Proxies['https'] = "https://" + temp
+
+    # 监测代理时间。如果超时更新代理，同一时间只允许存在一个代理监控进程，其余只负责更新，读取已经存在的代理
     def run(self) -> None:
         start_time = time.time()
-        self.get_proxies()
+        logger.info("------------ Run as following proxies thread ------------")
         while self.__thread__flag:
-            if time.time() - start_time > self.live_time:
-                logger.warning("proxies failure, get new one")
+
+            if redis.get("ProxiesThreadCode") is None:
+                redis.set("ProxiesThreadCode", "2")  # 抢占代理主线
+                self.__main_thread__ = True  # 以主线运行标志
+                logger.info("------------ Switch to main proxies thread ------------")
+
+            if self.__main_thread__ and (
+                    time.time() - start_time > self.live_time or redis.get("ProxiesThreadCode").decode("utf-8") == "2"):
+                logger.warning("Proxies failure, get new one")
                 # 重设代理使用时长
                 start_time = time.time()
                 self.get_proxies()
-            time.sleep(3)
+                self.update_self_proxies()
+                redis.set("ProxiesThreadCode", "1")
+            elif not self.__main_thread__:
+                self.update_self_proxies()
+
+            time.sleep(1)
 
 
 class UrlManager(object):
@@ -177,12 +210,14 @@ class UrlManager(object):
             redis.rpush("list_" + self.db_set_name, url)  # 列表尾部插入
 
     # 从队列头部提取url
-    def get(self) -> str:
-        if not self.list_not_null():
+    def get(self, db_set_name="") -> str:
+        if db_set_name is "":
+            db_set_name = self.db_set_name
+        if not self.list_not_null(db_set_name):
             raise exception.UrlEmptyException
         if not self.use_redis:
             return self.url_list.pop(0)
-        return redis.lpop("list_" + self.db_set_name).decode("utf-8")  # 列表头部pop
+        return redis.lpop("list_" + db_set_name).decode("utf-8")  # 列表头部pop
 
     # 队列还有URL吗
     def list_not_null(self, set_name=None) -> bool:
@@ -196,7 +231,7 @@ class UrlManager(object):
 
 
 # 页面资源下载
-class HtmlDownloader(threading.Thread):
+class HtmlDownloader(Thread):
 
     def __init__(self):
         """:param None"""
@@ -210,37 +245,41 @@ class HtmlDownloader(threading.Thread):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                           "Chrome/85.0.4183.102 Safari/537.36 Edg/85.0.564.51 "
         }
-        socket.setdefaulttimeout(config.SOCKET_DEFAULT_TIMEOUT)  # 设置超时
+        setdefaulttimeout(config.SOCKET_DEFAULT_TIMEOUT)  # 设置超时
 
     def download(self, url: str, params=None) -> str:
         if url == "":
             raise exception.UrlEmptyException
         if params is None:
             params = {}
-        for i in range(config.REQUEST_RETRY_TIMES):
+
+        error = 0
+
+        for i in range(1, config.REQUEST_RETRY_TIMES + 1):
             try:
                 res = requests.get(url, params=params, headers=self.headers, proxies=self.proxies.Proxies,
-                                   timeout=3)
+                                   timeout=15)
                 if res.status_code == 200:
                     return res.text
                 res.raise_for_status()
             # 记录异常
             except requests.exceptions.HTTPError:
                 logger.warning(
-                    "HTTPError with url:<{0}> retrying.....{1},{2}".format(url[:25] + " ... " + url[-15:], i + 1,
+                    "HTTPError with url:<{0}> retrying.....{1},{2}".format(url[:25] + " ... " + url[-15:], i,
                                                                            config.REQUEST_RETRY_TIMES))
             except requests.exceptions.Timeout:
                 logger.warning(
-                    "Timeout with url:<{0}> retrying.....{1},{2}".format(url[:25] + " ... " + url[-15:], i + 1,
+                    "Timeout with url:<{0}> retrying.....{1},{2}".format(url[:25] + " ... " + url[-15:], i,
                                                                          config.REQUEST_RETRY_TIMES))
             except requests.exceptions.ProxyError:
-                self.proxies.get_proxies()
-                logger.error("Cannot connect to proxy.', timeout('timed out')", exc_info=True)
-                time.sleep(10)
+                logger.error("Cannot connect to proxy.', timeout('timed out')")
             except Exception:
                 logger.error("Undefined Error [{0}]".format(url), exc_info=True)
-        self.proxies.get_proxies()
-        logger.critical("requests.exceptions.RetryError [{0}]".format(url), exc_info=True)
+            if error == 3:
+                self.proxies.need_update()
+            time.sleep(5)
+        self.proxies.need_update()
+        logger.critical("requests.exceptions.RetryError [{0}]".format(url))
         time.sleep(10)
         raise requests.exceptions.RetryError
 
@@ -328,7 +367,7 @@ class HtmlParser(object):
         return
 
 
-class DataSaver(threading.Thread):
+class DataSaver(Thread):
 
     def __init__(self, db_name='', set_name='', use_auto_increase_index=False, use_redis=False):
         """若要使用Redis缓存数据，指定参数use_redis=True \n使用MongoDB自增ID，指定use_auto_increase_index=True
@@ -380,7 +419,7 @@ class DataSaver(threading.Thread):
         :param encoding: default "utf-8"
 
         """
-        pd.DataFrame(data).to_csv(file_name, encoding=encoding)
+        DataFrame(data).to_csv(file_name, encoding=encoding)
 
     # MongoDB自增ID
     def getNextId(self) -> None:

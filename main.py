@@ -4,7 +4,7 @@
 @Project     : 知乎
 @File        : main.py
 @Time        : 2020/11/13 0:53
-@Description : 
+@Description :
 """
 
 import redis
@@ -13,7 +13,6 @@ from time import sleep
 from threading import Thread
 from frame import SpiderFrame
 from frame.mail import send_mail
-from utils import topic, question, comment, user
 
 logger = SpiderFrame.logger
 redis = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, password=config.REDIS_PASSWORD)
@@ -27,15 +26,12 @@ class TopicSpider(Thread):
         self.id_manager = SpiderFrame.UrlManager(db_set_name=config.TOPIC_ID_SET, use_redis=config.USE_REDIS)
 
     def run(self):
+        from utils import topic
         logger.info("TopicSpider thread start...")
-        _id = ''
-        # self.id_manager.add_id(config.TOPIC_ID_SET, "19563451")
+        _id = ""
         try:
-            while self.id_manager.list_not_null() or self.id_manager.list_not_null(config.TOPIC_SET):
-                try:
-                    _id = self.id_manager.get()
-                except:
-                    _id = ''
+            while self.id_manager.list_not_null():
+                _id = self.id_manager.get()
                 topic.spider(_id)
         except Exception as e:
             # 之前的报错信息已被记录
@@ -60,6 +56,7 @@ class QuestionSpider(Thread):
         self.flag = False
 
     def run(self):
+        from utils import question
         logger.info("QuestionSpider thread start...")
         _id = ''
         try:
@@ -92,6 +89,7 @@ class CommentSpider(Thread):
         self.flag = False
 
     def run(self):
+        from utils import comment
         _id = ''
         try:
             logger.info("CommentSpider thread start...")
@@ -124,6 +122,7 @@ class UserSpider(Thread):
         self.flag = False
 
     def run(self):
+        from utils import user
         logger.info("UserSpider thread start...")
         _id = ''
         try:
@@ -142,77 +141,88 @@ class UserSpider(Thread):
             user.html_downloader.proxies.__exit__()
 
 
+class running(Thread):
+    def __init__(self):
+        super(running, self).__init__()
+
+    def run(self):
+        TS = TopicSpider()
+        QS = QuestionSpider()
+        CS = CommentSpider()
+        US = UserSpider()
+
+        TS.start()
+        logger.info("Next thread will be start after 7.5s")
+        sleep(7.5)
+        QS.start()
+        logger.info("Next thread will be start after 7.5s")
+        sleep(7.5)
+        CS.start()
+        logger.info("Next thread will be start after 7.5s")
+        sleep(7.5)
+        US.start()
+
+        logger.warning("爬虫进程启动完成，启动监控进程")
+        # watching
+        TS_i = QS_i = CS_i = US_i = 1
+        while True:
+            if TS_i != 3 and not TS.is_alive() and (
+                    redis.llen("list_" + config.TOPIC_ID_SET) or redis.llen("list_" + config.TOPIC_SET)):
+                for i in range(1, 4):
+                    if TS.is_alive():
+                        continue
+                    logger.warning("TS is exit, try active it. ({0}/3)".format(TS_i))
+                    TS = TopicSpider()
+                    TS.start()
+                    sleep(5)
+                    if i == 3 and not TS.is_alive():
+                        logger.error("Active thread TS failed")
+                        send_mail("TS is exit and try to activate it failed")
+            if QS_i != 3 and not QS.is_alive() and (
+                    redis.llen("list_" + config.QUESTION_ID_SET) or redis.llen("list_" + config.QUESTION_SET)):
+                for i in range(1, 4):
+                    if QS.is_alive():
+                        QS_i = 1
+                        continue
+                    logger.warning("QS is exit, try active it. ({0}/3)".format(QS_i))
+                    QS = QuestionSpider()
+                    QS.start()
+                    sleep(5)
+                    if i == 3 and not QS.is_alive():
+                        logger.error("----- Active thread QS failed -----")
+                        send_mail("QS is exit and try to activate it failed")
+            if CS_i != 3 and not CS.is_alive() and (
+                    redis.llen("list_" + config.ANSWER_ID_SET) or redis.llen("list_" + config.COMMENT_SET)):
+                for i in range(1, 4):
+                    if CS.is_alive():
+                        CS_i = 1
+                        continue
+                    logger.warning("QS is exit, try active it. ({0}/3)".format(CS_i))
+                    CS = CommentSpider()
+                    CS.start()
+                    sleep(5)
+                    if i == 3 and not CS.is_alive():
+                        logger.error("----- Active thread CS failed -----")
+                        send_mail("CS is exit and try to activate it failed")
+            if US_i != 3 and not US.is_alive() and redis.llen("list_" + config.USER_ID_SET):
+                for i in range(1, 4):
+                    if US.is_alive():
+                        US_i = 1
+                        continue
+                    logger.warning("US is exit, try active it. ({0}/3)".format(US_i))
+                    US = UserSpider()
+                    US.start()
+                    sleep(5)
+                    if i == 3 and not US.is_alive():
+                        logger.error("----- Active thread US failed -----")
+                        send_mail("US is exit and try to activate it failed")
+            if not (TS.is_alive() or QS.is_alive() or CS.is_alive() or US.is_alive()):
+                logger.critical("----- All thread exited and can't be actived, main thread is exiting -----")
+            if TS.is_alive() and QS.is_alive() and CS.is_alive() and US.is_alive():
+                logger.info("----- ALL THREAD IS ALIVE -----")
+            sleep(10)
+
 
 if __name__ == '__main__':
-    TS = TopicSpider()
-    QS = QuestionSpider()
-    CS = CommentSpider()
-    US = UserSpider()
-
-    TS.start()
-    logger.info("Next thread will be start after 7.5s")
-    sleep(7.5)
-    QS.start()
-    logger.info("Next thread will be start after 7.5s")
-    sleep(7.5)
-    CS.start()
-    logger.info("Next thread will be start after 7.5s")
-    sleep(7.5)
-    US.start()
-
-    logger.warning("爬虫进程启动完成，启动监控进程")
-    # watching
-    TS_i = QS_i = CS_i = US_i = 1
-    while True:
-        if TS_i != 3 and not TS.is_alive() and (redis.llen("list_"+config.TOPIC_ID_SET) or redis.llen("list_"+config.TOPIC_SET)):
-            for i in range(1, 4):
-                if TS.is_alive():
-                    continue
-                logger.warning("TS is exit, try active it. ({0}/3)".format(TS_i))
-                TS = TopicSpider()
-                TS.start()
-                sleep(5)
-                if i == 3 and not TS.is_alive():
-                    logger.error("Active thread TS failed")
-                    send_mail("TS is exit and try to activate it failed")
-        if QS_i != 3 and not QS.is_alive() and (redis.llen("list_"+config.QUESTION_ID_SET) or redis.llen("list_"+config.QUESTION_SET)):
-            for i in range(1, 4):
-                if QS.is_alive():
-                    QS_i = 1
-                    continue
-                logger.warning("QS is exit, try active it. ({0}/3)".format(QS_i))
-                QS = QuestionSpider()
-                QS.start()
-                sleep(5)
-                if i == 3 and not QS.is_alive():
-                    logger.error("----- Active thread QS failed -----")
-                    send_mail("QS is exit and try to activate it failed")
-        if CS_i != 3 and not CS.is_alive() and (redis.llen("list_"+config.ANSWER_ID_SET) or redis.llen("list_"+config.COMMENT_SET)):
-            for i in range(1, 4):
-                if CS.is_alive():
-                    CS_i = 1
-                    continue
-                logger.warning("QS is exit, try active it. ({0}/3)".format(CS_i))
-                CS = CommentSpider()
-                CS.start()
-                sleep(5)
-                if i == 3 and not CS.is_alive():
-                    logger.error("----- Active thread CS failed -----")
-                    send_mail("CS is exit and try to activate it failed")
-        if US_i != 3 and not US.is_alive() and redis.llen("list_"+config.USER_ID_SET):
-            for i in range(1, 4):
-                if US.is_alive():
-                    US_i = 1
-                    continue
-                logger.warning("US is exit, try active it. ({0}/3)".format(US_i))
-                US = UserSpider()
-                US.start()
-                sleep(5)
-                if i == 3 and not US.is_alive():
-                    logger.error("----- Active thread US failed -----")
-                    send_mail("US is exit and try to activate it failed")
-        if not(TS.is_alive() or QS.is_alive() or CS.is_alive() or US.is_alive()):
-            logger.critical("----- All thread exited and can't be actived, main thread is exiting -----")
-        if TS.is_alive() and QS.is_alive() and CS.is_alive() and US.is_alive():
-            logger.info("----- ALL THREAD IS ALIVE -----")
-        sleep(10)
+    r1 = running()
+    r1.start()
