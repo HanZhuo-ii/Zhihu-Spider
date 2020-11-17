@@ -238,7 +238,6 @@ class running(Thread):
                         logger.error("----- Active thread US failed -----")
                         send_mail("US is exit and try to activate it failed")
             if not (TS.is_alive() or QS.is_alive() or CS.is_alive() or US.is_alive()):
-                PE.__exit__()
                 logger.critical("----- All thread exited and can't be actived, main thread is exiting -----")
                 return
             if TS.is_alive() and QS.is_alive() and CS.is_alive() and US.is_alive():
