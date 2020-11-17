@@ -141,31 +141,23 @@ class UserSpider(Thread):
             user.html_downloader.proxies.__exit__()
 
 
-class ProcessError(Thread):
-    def __init__(self):
-        super().__init__()
-        self.__thread__running__tag__ = True
-
-    def __exit__(self):
-        logger.warning("Exit ProcessError Thread...")
-        self.__thread__running__tag__ = False
-
-    def run(self):
-        while self.__thread__running__tag__:
-            keys = redis.keys("*")
-            for key in keys:
-                try:
-                    int(key)
-                    url = redis.get(key).decode("utf-8").split("/")
-                    if url[5] == "answers":
-                        redis.rpush(config.ANSWER_ID_SET, url[5])
-                    elif url[5] == "questions":
-                        redis.rpush(config.QUESTION_ID_SET, url[5])
-                    elif url[5] == "topics":
-                        redis.rpush(config.TOPIC_ID_SET, url[5])
-                except:
-                    pass
-            sleep(10)
+def ProcessError():
+    keys = redis.keys("*")
+    for key in keys:
+        try:
+            int(key)
+            url = redis.get(key).decode("utf-8").split("/")
+            if url[5] == "answers":
+                redis.rpush(config.ANSWER_ID_SET, url[5])
+                redis.delete(key)
+            elif url[5] == "questions":
+                redis.rpush(config.QUESTION_ID_SET, url[5])
+                redis.delete(key)
+            elif url[5] == "topics":
+                redis.rpush(config.TOPIC_ID_SET, url[5])
+                redis.delete(key)
+        except:
+            pass
 
 
 class running(Thread):
@@ -177,10 +169,10 @@ class running(Thread):
         QS = QuestionSpider()
         CS = CommentSpider()
         US = UserSpider()
-        PE = ProcessError()
 
+        logger.info("Processing Error Data")
+        ProcessError()
         TS.start()
-        PE.start()
         logger.info("Next thread will be start after 7.5s")
         sleep(7.5)
         QS.start()
