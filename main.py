@@ -73,8 +73,6 @@ class QuestionSpider(Thread):
                         question.spider(_id)
                     except:
                         continue
-                elif not self.id_manager.list_not_null("list_"+config.TOPIC_SET):
-                    break
                 else:
                     sleep(5)
             self.exit_code = 0
@@ -106,15 +104,13 @@ class CommentSpider(Thread):
         _id = ''
         try:
             logger.info("CommentSpider thread start...")
-            while True:
+            while self.flag:
                 if self.id_manager.list_not_null():
                     _id = self.id_manager.get()
                     try:
                         comment.spider(_id)
                     except:
                         continue
-                elif not (self.id_manager.list_not_null("list_"+config.TOPIC_SET) or self.id_manager.list_not_null("list_"+config.QUESTION_SET)):
-                    break
                 else:
                     sleep(5)
             self.exit_code = 0
@@ -146,15 +142,13 @@ class UserSpider(Thread):
         logger.info("UserSpider thread start...")
         _id = ''
         try:
-            while True:
+            while self.flag:
                 if self.id_manager.list_not_null():
                     _id = self.id_manager.get()
                     try:
                         user.spider(_id)
                     except:
                         continue
-                elif not (self.id_manager.list_not_null("list_"+config.TOPIC_SET) or self.id_manager.list_not_null("list_"+config.QUESTION_SET) or self.id_manager.list_not_null("list_"+config.COMMENT_SET)):
-                    break
                 else:
                     sleep(5)
             self.exit_code = 0
@@ -266,6 +260,15 @@ class running(Thread):
                 return
             if (TS.is_alive() or TS.exit_code == 0) and (QS.is_alive() or QS.exit_code == 0) and (CS.is_alive() or CS.exit_code == 0) and (US.is_alive() or US.exit_code == 0):
                 logger.info("----- ALL THREAD IS ALIVE -----")
+            if TS.exit_code == 0 and QS.id_manager.list_not_null():
+                if QS.flag:
+                    QS.__exit__()
+                if QS.exit_code == 0 and CS.id_manager.list_not_null():
+                    if CS.flag:
+                        CS.__exit__()
+                    if CS.exit_code == 0 and US.id_manager.list_not_null():
+                        if US.flag:
+                            US.__exit__()
             sleep(10)
 
 
