@@ -46,7 +46,7 @@ def spider(answer_id: str) -> None:
 
     try:
         while True:
-            sleep(.3)
+            sleep(.1)
             url = redis.get(answer_id).decode("utf-8")
             try:
                 res = html_downloader.download(url)
