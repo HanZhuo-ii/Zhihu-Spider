@@ -73,6 +73,8 @@ class QuestionSpider(Thread):
                         question.spider(_id)
                     except:
                         continue
+                elif not self.id_manager.list_not_null("list_"+config.TOPIC_SET):
+                    break
                 else:
                     sleep(5)
             self.exit_code = 0
@@ -111,6 +113,8 @@ class CommentSpider(Thread):
                         comment.spider(_id)
                     except:
                         continue
+                elif not (self.id_manager.list_not_null("list_"+config.TOPIC_SET) or self.id_manager.list_not_null("list_"+config.QUESTION_SET)):
+                    break
                 else:
                     sleep(5)
             self.exit_code = 0
@@ -149,6 +153,8 @@ class UserSpider(Thread):
                         user.spider(_id)
                     except:
                         continue
+                elif not (self.id_manager.list_not_null("list_"+config.TOPIC_SET) or self.id_manager.list_not_null("list_"+config.QUESTION_SET) or self.id_manager.list_not_null("list_"+config.COMMENT_SET)):
+                    break
                 else:
                     sleep(5)
             self.exit_code = 0
@@ -191,8 +197,8 @@ class running(Thread):
         CS = CommentSpider()
         US = UserSpider()
 
-        logger.info("Processing Error Data")
-        ProcessError()
+        # logger.info("Processing Error Data")
+        # ProcessError()
         TS.start()
         logger.info("Next thread will be start after 7.5s")
         sleep(7.5)
