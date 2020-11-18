@@ -43,7 +43,7 @@ class TopicSpider(Thread):
             logger.critical("Unexpected Exit TopicSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
             # send_mail("TopicSpider发生意料之外的错误，已退出线程")
         finally:
-            logger.warning("TopicSpider finished with exit code 0")
+            logger.warning("TopicSpider finished")
             topic.html_downloader.proxies.__exit__()
 
 
@@ -83,7 +83,7 @@ class QuestionSpider(Thread):
             logger.critical("Unexpected Exit QuestionSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
             # send_mail("QuestionSpider发生意料之外的错误，已退出线程")
         finally:
-            logger.warning("QuestionSpider finished with exit code 0")
+            logger.warning("QuestionSpider finished")
             question.html_downloader.proxies.__exit__()
 
 
@@ -123,7 +123,7 @@ class CommentSpider(Thread):
             logger.critical("Unexpected Exit CommentSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
             # send_mail("CommentSpider发生意料之外的错误，已退出线程")
         finally:
-            logger.warning("CommentSpider finished with exit code 0")
+            logger.warning("CommentSpider finished")
             comment.html_downloader.proxies.__exit__()
 
 
@@ -163,7 +163,7 @@ class UserSpider(Thread):
             logger.critical("Unexpected Exit UserSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
             # send_mail("UserSpider发生意料之外的错误，已退出线程")
         finally:
-            logger.warning("UserSpider finished with exit code 0")
+            logger.warning("UserSpider finished")
             user.html_downloader.proxies.__exit__()
 
 
