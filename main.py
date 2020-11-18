@@ -256,10 +256,10 @@ class running(Thread):
                     if i == 3 and not US.is_alive():
                         logger.error("----- Active thread US failed -----")
                         send_mail("US is exit and try to activate it failed")
-            if not (TS.is_alive() or QS.is_alive() or CS.is_alive() or US.is_alive()):
+            if TS.exit_code == 0 and QS.exit_code == 0 and CS.exit_code == 0 and US.exit_code == 0:
                 logger.critical("----- All thread exited and can't be actived, main thread is exiting -----")
                 return
-            if TS.is_alive() and QS.is_alive() and CS.is_alive() and US.is_alive():
+            if (TS.is_alive() or TS.exit_code == 0) and (QS.is_alive() or QS.exit_code == 0) and (CS.is_alive() or CS.exit_code == 0) and (US.is_alive() or US.exit_code == 0):
                 logger.info("----- ALL THREAD IS ALIVE -----")
             sleep(10)
 
