@@ -45,5 +45,3 @@ def send_mail(content):
                          exc_info=True)
             i += 1
             sleep(10)
-
-send_mail("test")
