@@ -124,7 +124,6 @@ class Proxies(Thread):
     def need_update():
         if time.time() - redis.get("ProxiesUpdated_{0}".format(config.THREAD_ID)).decode("utf-8") > 60:
             redis.set("ProxiesThreadCode_{0}".format(config.THREAD_ID), "2")
-            redis.set("ProxiesUpdated_{0}".format(config.THREAD_ID), time.time())
         return
 
     def get_proxies(self):
@@ -134,6 +133,7 @@ class Proxies(Thread):
             j = eval(res.text.replace("true", "True").replace("false", "False").replace("null", "'null'"))
             if j['code'] == 0:
                 redis.set("Proxies_{0}".format(config.THREAD_ID), j['data'][0]['ip'] + ":" + str(j['data'][0]['port']))
+                redis.set("ProxiesUpdated_{0}".format(config.THREAD_ID), time.time())
                 self.live_time = int(
                     time.mktime(time.strptime(j["data"][0]["expire_time"], "%Y-%m-%d %H:%M:%S"))) - time.time()
                 logger.info("Successfully get proxies")

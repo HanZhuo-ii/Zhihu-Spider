@@ -10,7 +10,6 @@
 import redis
 import config
 from time import sleep
-from requests import exceptions
 from threading import Thread
 from frame import SpiderFrame
 from frame.mail import send_mail
