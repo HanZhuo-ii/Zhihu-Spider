@@ -4,10 +4,10 @@ THREAD_ID = 1   # 每个线程单独使用一个代理，防止并发量过大�
 
 # Mail
 MAIL_HOST = 'smtp.163.com'              # 邮箱服务器地址
-MAIL_USER = '163用户名'                  # 163用户名
-MAIL_PASSWD = '密码(部分邮箱为授权码)'      # 密码(部分邮箱为授权码)
-MAIL_SENDER = '邮件发送方邮箱地址'          # 邮件发送方邮箱地址
-MAIL_RECEIVERS = ['收件地址']
+MAIL_USER = 'hanzhuoii@163.com'         # 163用户名
+MAIL_PASSWD = 'RICFGHQXKBUPWBQN'        # 密码(部分邮箱为授权码)
+MAIL_SENDER = 'hanzhuoii@163.com'       # 邮件发送方邮箱地址
+MAIL_RECEIVERS = ['hanzhuoii@outlook.com']     # 邮件接受方邮箱地址，注意需要[]包裹，这意味着你可以写多个邮件地址群发
 
 # Redis
 USE_REDIS = True    # 如果设置为False，后面的*_ADD_*_ID将不会添加，
@@ -32,7 +32,7 @@ MONGO_DOC_LIMIT = 5000  # 每个文档最多存储5000条data, 否则会造成�
 
 # 代理与网络请求部分
 USE_PROXIES = True
-PROXIES_API = "代理API"
+PROXIES_API = "http://webapi.http.zhimacangku.com/getip?num=1&type=2&pro=0&city=0&yys=0&port=1&time=1&ts=1&ys=0&cs=0&lb=1&sb=0&pb=45&mr=1&regions=110000,130000,140000,310000,320000,330000,340000,360000,370000,410000,420000,430000,440000,500000,510000,610000"
 PROXIES_LIVE_TIME = 60
 REQUEST_RETRY_TIMES = 5
 SOCKET_DEFAULT_TIMEOUT = 20     # 整个request生命周期

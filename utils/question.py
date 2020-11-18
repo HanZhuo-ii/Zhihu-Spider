@@ -103,7 +103,7 @@ def spider(question_id: str):
 
         # question detail
         while True:
-            sleep(.3)
+            sleep(.1)
             url = redis.get(question_id).decode("utf-8")
             try:
                 res = html_downloader.download(url)
