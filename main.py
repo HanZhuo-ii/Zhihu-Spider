@@ -36,7 +36,7 @@ class TopicSpider(Thread):
                 _id = self.id_manager.get()
                 try:
                     topic.spider(_id)
-                except exceptions.RetryError:
+                except:
                     continue
             self.exit_code = 0
         except Exception as e:
@@ -72,7 +72,7 @@ class QuestionSpider(Thread):
                     _id = self.id_manager.get()
                     try:
                         question.spider(_id)
-                    except exceptions.RetryError:
+                    except:
                         continue
                 else:
                     sleep(5)
@@ -110,7 +110,7 @@ class CommentSpider(Thread):
                     _id = self.id_manager.get()
                     try:
                         comment.spider(_id)
-                    except exceptions.RetryError:
+                    except:
                         continue
                 else:
                     sleep(5)
@@ -148,7 +148,7 @@ class UserSpider(Thread):
                     _id = self.id_manager.get()
                     try:
                         user.spider(_id)
-                    except exceptions.RetryError:
+                    except:
                         continue
                 else:
                     sleep(5)
