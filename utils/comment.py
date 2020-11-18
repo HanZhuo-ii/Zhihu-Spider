@@ -55,7 +55,7 @@ def spider(answer_id: str) -> None:
                 return
             res = json_lds(res)
             for data in res['data']:
-                if len(data_saver.mg_data_db.find_one({"AnswerID": answer_id, "offset": offset})["data"]) >= 5000:
+                if len(data_saver.mg_data_db.find_one({"AnswerID": answer_id, "offset": offset})["data"]) >= config.MONGO_DOC_LIMIT:
                     logger.warning("MongoDB document out of limit, Create new document and update offset")
                     offset += config.MONGO_DOC_LIMIT
                     data_saver.mongo_insert({

@@ -116,7 +116,7 @@ def spider(question_id: str):
                 logger.error("Json格式校验错误")
                 continue
             for data in question_json["data"]:
-                if len(data_saver.mg_data_db.find_one({"QuestionId": question_id, "offset": offset})["data"]) >= 5000:
+                if len(data_saver.mg_data_db.find_one({"QuestionId": question_id, "offset": offset})["data"]) >= config.MONGO_DOC_LIMIT:
                     logger.warning("MongoDB document out of limit, Create new document and update offset")
                     offset += config.MONGO_DOC_LIMIT
                     data_saver.mongo_insert({
