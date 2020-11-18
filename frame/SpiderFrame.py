@@ -122,7 +122,10 @@ class Proxies(Thread):
     # 如果代理失效，通知进程主动更新代理
     @staticmethod
     def need_update():
-        redis.set("ProxiesThreadCode_{0}".format(config.THREAD_ID), "2")
+        if time.time() - redis.get("ProxiesUpdated_{0}".format(config.THREAD_ID)).decode("utf-8") > 60:
+            redis.set("ProxiesThreadCode_{0}".format(config.THREAD_ID), "2")
+            redis.set("ProxiesUpdated_{0}".format(config.THREAD_ID), time.time())
+        return
 
     def get_proxies(self):
         i = 0
@@ -267,8 +270,6 @@ class HtmlDownloader(Thread):
         if params is None:
             params = {}
 
-        error = 0
-
         for i in range(1, config.REQUEST_RETRY_TIMES + 1):
             try:
                 res = requests.get(url, params=params, headers=self.headers, proxies=self.proxies.Proxies,
@@ -286,12 +287,11 @@ class HtmlDownloader(Thread):
                     "Timeout with url:<{0}> retrying.....{1},{2}".format(url[:25] + " ... " + url[-15:], i,
                                                                          config.REQUEST_RETRY_TIMES))
             except requests.exceptions.ProxyError:
+
                 self.proxies.need_update()
                 logger.error("Cannot connect to proxy.', timeout('timed out')")
             except Exception:
                 logger.error("Undefined Error [{0}]".format(url), exc_info=True)
-            # if error == 4:
-            #     self.proxies.need_update()
             time.sleep(5)
         logger.critical("requests.exceptions.RetryError [{0}]".format(url))
         time.sleep(10)
