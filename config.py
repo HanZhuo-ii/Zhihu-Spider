@@ -1,7 +1,13 @@
 # - global -
 DB_NAME = "知乎"  # MongoDB 数据库名称
 THREAD_ID = 1   # 每个线程单独使用一个代理，防止并发量过大造成代理无法连接
-MAIL_PASSWD = '邮箱密钥'
+
+# Mail
+MAIL_HOST = 'smtp.163.com'              # 邮箱服务器地址
+MAIL_USER = '163用户名'                  # 163用户名
+MAIL_PASSWD = '密码(部分邮箱为授权码)'      # 密码(部分邮箱为授权码)
+MAIL_SENDER = '邮件发送方邮箱地址'          # 邮件发送方邮箱地址
+MAIL_RECEIVERS = ['收件地址']
 
 # Redis
 USE_REDIS = True    # 如果设置为False，后面的*_ADD_*_ID将不会添加，

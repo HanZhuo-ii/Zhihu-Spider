@@ -9,6 +9,7 @@ from frame import SpiderFrame
 from bs4 import BeautifulSoup
 from time import sleep
 from redis import Redis
+from requests import exceptions
 
 import pymongo.errors
 import config
@@ -66,9 +67,8 @@ def spider(topic_id: str):
             url = redis.get(topic_id).decode("utf-8")
             try:
                 res = html_downloader.download(url)
-            except SpiderFrame.exception.RequestRetryError as e:
-                logger.error(e, exc_info=True)
-                sleep(1)
+            except exceptions.RetryError:
+                logger.error(exc_info=True)
                 return
             topic_json = json.loads(res)
 

@@ -8,6 +8,7 @@
 """
 
 from frame import SpiderFrame
+from requests import exceptions
 from json import loads as json_lds
 from time import sleep
 from redis import Redis
@@ -49,9 +50,8 @@ def spider(answer_id: str) -> None:
             url = redis.get(answer_id).decode("utf-8")
             try:
                 res = html_downloader.download(url)
-            except SpiderFrame.exception.RequestRetryError as e:
-                logger.error(e, exc_info=True)
-                sleep(1)
+            except exceptions.RetryError:
+                logger.error(exc_info=True)
                 return
             res = json_lds(res)
             for data in res['data']:

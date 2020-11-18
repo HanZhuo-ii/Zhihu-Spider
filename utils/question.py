@@ -8,6 +8,7 @@
 
 from frame import SpiderFrame
 from bs4 import BeautifulSoup
+from requests import exceptions
 from re import findall
 from os import path, makedirs
 from redis import Redis
@@ -106,10 +107,8 @@ def spider(question_id: str):
             url = redis.get(question_id).decode("utf-8")
             try:
                 res = html_downloader.download(url)
-            except SpiderFrame.exception.RequestRetryError as e:
-                logger.error(e, exc_info=True)
-                redis.set(question_id, url)
-                sleep(1)
+            except exceptions.RetryError:
+                logger.error(exc_info=True)
                 return
             try:
                 question_json = json.loads(res)

@@ -9,16 +9,12 @@ def send_mail(content):
     while True:
         i = 1
         # 设置服务器所需信息
-        # 163邮箱服务器地址
-        mail_host = 'smtp.163.com'
-        # 163用户名
-        mail_user = 'hanzhuoii@163.com'
-        # 密码(部分邮箱为授权码)
+        mail_host = config.MAIL_HOST
+        mail_user = config.MAIL_USER
         mail_pass = config.MAIL_PASSWD
-        # 邮件发送方邮箱地址
-        sender = 'hanzhuoii@163.com'
-        # 邮件接受方邮箱地址，注意需要[]包裹，这意味着你可以写多个邮件地址群发
-        receivers = ['e.hanzhuo@gmail.com']
+        sender = config.MAIL_SENDER
+
+        receivers = config.MAIL_RECEIVERS
 
         # 设置email信息
         # 邮件内容设置
@@ -49,3 +45,5 @@ def send_mail(content):
                          exc_info=True)
             i += 1
             sleep(10)
+
+send_mail("test")
