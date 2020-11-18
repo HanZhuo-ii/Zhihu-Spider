@@ -3,7 +3,7 @@
   <component name="WebServers">
     <option name="servers">
       <webServer id="e6104706-730a-441e-a3ec-46296c6aaa6f" name="阿里云">
-        <fileTransfer accessType="SFTP" host="aly" port="22" sshConfigId="80bb1a53-d0e4-44bf-bd06-c6b4d0b7b7b1" sshConfig="root@aly:22 key" keyPair="true">
+        <fileTransfer accessType="SFTP" host="39.106.111.245" port="22" sshConfigId="80bb1a53-d0e4-44bf-bd06-c6b4d0b7b7b1" sshConfig="root@39.106.111.245:22 key" keyPair="true">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
