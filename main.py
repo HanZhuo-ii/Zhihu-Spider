@@ -168,13 +168,13 @@ def ProcessError():
             int(key)
             url = redis.get(key).decode("utf-8").split("/")
             if url[5] == "answers":
-                redis.rpush("list_"+config.ANSWER_ID_SET, url[5])
+                redis.rpush("list_"+config.ANSWER_ID_SET, url[6])
                 redis.delete(key)
             elif url[5] == "questions":
-                redis.rpush("list_"+config.ANSWER_ID_SET, url[5])
+                redis.rpush("list_"+config.QUESTION_ID_SET, url[6])
                 redis.delete(key)
             elif url[5] == "topics":
-                redis.rpush("list_"+config.ANSWER_ID_SET, url[5])
+                redis.rpush("list_"+config.TOPIC_ID_SET, url[6])
                 redis.delete(key)
         except:
             pass
