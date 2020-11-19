@@ -61,6 +61,9 @@ def spider(topic_id: str):
                 "end_url": "",
                 "data": [],
             })
+        else:
+            while data_saver.mg_data_db.find_one({"TopicId": topic_id, "offset": offset+config.MONGO_DOC_LIMIT}):
+                offset += config.MONGO_DOC_LIMIT
 
         while True:
             sleep(.1)
