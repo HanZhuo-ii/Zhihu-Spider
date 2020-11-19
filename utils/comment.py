@@ -31,7 +31,8 @@ def spider(answer_id: str) -> None:
         .format(answer_id)
     res = html_downloader.download(url)
     res = json_lds(res)
-    redis.set(answer_id, url)
+    if redis.get(answer_id):
+        redis.set(answer_id, url)
 
     if not data_saver.mg_data_db.find_one({"AnswerID": answer_id}):
         logger.info("This answer's comments don't exist, creating")

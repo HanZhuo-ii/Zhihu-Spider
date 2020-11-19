@@ -129,7 +129,7 @@ class Proxies(Thread):
     # 如果代理失效，通知进程主动更新代理
     @staticmethod
     def need_update():
-        if time.time() - float(redis.get("ProxiesUpdated_{0}".format(config.THREAD_ID))) > 60:
+        if time.time() - float(redis.get("ProxiesUpdated_{0}".format(config.THREAD_ID))) > 10:
             redis.set("ProxiesThreadCode_{0}".format(config.THREAD_ID), "2")
         return
 

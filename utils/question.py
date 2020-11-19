@@ -80,7 +80,8 @@ def spider(question_id: str):
     offset = config.MONGO_DOC_LIMIT
     try:
         # 初始化URL队列，如果之前已经爬过，添加不进去，继续上次断点
-        redis.set(question_id, _init_url_(question_id))
+        if not redis.keys(question_id):
+            redis.set(question_id, _init_url_(question_id))
 
         # question base info
         url = "https://www.zhihu.com/question/" + question_id
