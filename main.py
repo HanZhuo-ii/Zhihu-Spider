@@ -45,7 +45,8 @@ class TopicSpider(Thread):
             # send_mail("TopicSpider发生意料之外的错误，已退出线程")
         finally:
             logger.warning("TopicSpider finished")
-            topic.html_downloader.proxies.__exit__()
+            if self.exit_code == 0:
+                topic.html_downloader.proxies.__exit__()
 
 
 class QuestionSpider(Thread):
@@ -82,8 +83,9 @@ class QuestionSpider(Thread):
             logger.critical("Unexpected Exit QuestionSpider: {0}, Message: {1}".format(_id, e), exc_info=True)
             # send_mail("QuestionSpider发生意料之外的错误，已退出线程")
         finally:
-            logger.warning("QuestionSpider finished")
-            question.html_downloader.proxies.__exit__()
+            logger.warning("QuestionSpider exited")
+            if self.exit_code == 0:
+                question.html_downloader.proxies.__exit__()
 
 
 class CommentSpider(Thread):
@@ -121,7 +123,8 @@ class CommentSpider(Thread):
             # send_mail("CommentSpider发生意料之外的错误，已退出线程")
         finally:
             logger.warning("CommentSpider finished")
-            comment.html_downloader.proxies.__exit__()
+            if self.exit_code == 0:
+                comment.html_downloader.proxies.__exit__()
 
 
 class UserSpider(Thread):
@@ -159,7 +162,8 @@ class UserSpider(Thread):
             # send_mail("UserSpider发生意料之外的错误，已退出线程")
         finally:
             logger.warning("UserSpider finished")
-            user.html_downloader.proxies.__exit__()
+            if self.exit_code == 0:
+                user.html_downloader.proxies.__exit__()
 
 
 def ProcessError():
@@ -186,7 +190,7 @@ class running(Thread):
         super(running, self).__init__()
 
     def run(self):
-        
+
         TS = TopicSpider()
         QS = QuestionSpider()
         CS = CommentSpider()

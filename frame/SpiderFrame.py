@@ -72,6 +72,7 @@ class exception:
         def __str__(self):
             return "尝试了过多次错误的Json解析"
 
+
 def custom_logger(__name__):
     if not path.exists(config.LOG_PATH):
         makedirs(config.LOG_PATH)
@@ -308,7 +309,7 @@ class HtmlDownloader(Thread):
             except requests.exceptions.ProxyError:
 
                 self.proxies.need_update()
-                logger.error("Cannot connect to proxy: {0}', timeout".format(self.proxies.Proxies))
+                logger.error("Cannot connect to proxy: {0}, timeout".format(self.proxies.Proxies))
             except Exception:
                 logger.error("Undefined Error [{0}]".format(url), exc_info=True)
             time.sleep(5)
