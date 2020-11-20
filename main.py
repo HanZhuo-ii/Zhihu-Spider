@@ -32,6 +32,7 @@ class TopicSpider(Thread):
         _id = ""
         try:
             while self.id_manager.list_not_null():
+                logger.warning("Len {0}: {1}".format(config.TOPIC_ID_SET, len(redis.llen("list_"+config.TOPIC_ID_SET))))
                 _id = self.id_manager.get()
                 try:
                     topic.spider(_id)
@@ -260,13 +261,13 @@ class running(Thread):
                 return
             if (TS.is_alive() or TS.exit_code == 0) and (QS.is_alive() or QS.exit_code == 0) and (CS.is_alive() or CS.exit_code == 0) and (US.is_alive() or US.exit_code == 0):
                 logger.info("----- ALL THREAD IS ALIVE -----")
-            if TS.exit_code == 0 and QS.id_manager.list_not_null():
+            if TS.exit_code == 0 and not QS.id_manager.list_not_null():
                 if QS.flag:
                     QS.__exit__()
-                if QS.exit_code == 0 and CS.id_manager.list_not_null():
+                if QS.exit_code == 0 and not CS.id_manager.list_not_null():
                     if CS.flag:
                         CS.__exit__()
-                    if CS.exit_code == 0 and US.id_manager.list_not_null():
+                    if CS.exit_code == 0 and not US.id_manager.list_not_null():
                         if US.flag:
                             US.__exit__()
             sleep(10)

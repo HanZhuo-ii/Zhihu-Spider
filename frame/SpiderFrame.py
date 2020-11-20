@@ -65,6 +65,12 @@ class exception:
         def __str__(self):
             return "代理已用完"
 
+    class TooManyErrorsInJsonLoad(Exception):
+        def __init__(self):
+            super().__init__()
+
+        def __str__(self):
+            return "尝试了过多次错误的Json解析"
 
 def custom_logger(__name__):
     if not path.exists(config.LOG_PATH):

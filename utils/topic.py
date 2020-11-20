@@ -9,6 +9,7 @@ from frame import SpiderFrame
 from bs4 import BeautifulSoup
 from time import sleep
 from redis import Redis
+from re import findall
 from requests import exceptions
 
 import pymongo.errors
@@ -42,10 +43,10 @@ def spider(topic_id: str):
     offset = config.MONGO_DOC_LIMIT
     url = ""
     try:
-        url = "https://www.zhihu.com/api/v4/topics/{0}/feeds/top_question?include=data%5B%3F(target.type%3Dtopic_sticky_module)%5D.target.data%5B%3F(target.type%3Danswer)%5D.target.content%2Crelationship.is_authorized%2Cis_author%2Cvoting%2Cis_thanked%2Cis_nothelp%3Bdata%5B%3F(target.type%3Dtopic_sticky_module)%5D.target.data%5B%3F(target.type%3Danswer)%5D.target.is_normal%2Ccomment_count%2Cvoteup_count%2Ccontent%2Crelevant_info%2Cexcerpt.author.badge%5B%3F(type%3Dbest_answerer)%5D.topics%3Bdata%5B%3F(target.type%3Dtopic_sticky_module)%5D.target.data%5B%3F(target.type%3Darticle)%5D.target.content%2Cvoteup_count%2Ccomment_count%2Cvoting%2Cauthor.badge%5B%3F(type%3Dbest_answerer)%5D.topics%3Bdata%5B%3F(target.type%3Dtopic_sticky_module)%5D.target.data%5B%3F(target.type%3Dpeople)%5D.target.answer_count%2Carticles_count%2Cgender%2Cfollower_count%2Cis_followed%2Cis_following%2Cbadge%5B%3F(type%3Dbest_answerer)%5D.topics%3Bdata%5B%3F(target.type%3Danswer)%5D.target.annotation_detail%2Ccontent%2Chermes_label%2Cis_labeled%2Crelationship.is_authorized%2Cis_author%2Cvoting%2Cis_thanked%2Cis_nothelp%2Canswer_type%3Bdata%5B%3F(target.type%3Danswer)%5D.target.author.badge%5B%3F(type%3Dbest_answerer)%5D.topics%3Bdata%5B%3F(target.type%3Danswer)%5D.target.paid_info%3Bdata%5B%3F(target.type%3Darticle)%5D.target.annotation_detail%2Ccontent%2Chermes_label%2Cis_labeled%2Cauthor.badge%5B%3F(type%3Dbest_answerer)%5D.topics%3Bdata%5B%3F(target.type%3Dquestion)%5D.target.annotation_detail%2Ccomment_count%3B&offset=5&limit=20".format(
-            topic_id)
         if not redis.keys(topic_id):
             redis.set(topic_id, url)
+        url = "https://www.zhihu.com/api/v4/topics/{0}/feeds/top_question?include=data%5B%3F(target.type%3Dtopic_sticky_module)%5D.target.data%5B%3F(target.type%3Danswer)%5D.target.content%2Crelationship.is_authorized%2Cis_author%2Cvoting%2Cis_thanked%2Cis_nothelp%3Bdata%5B%3F(target.type%3Dtopic_sticky_module)%5D.target.data%5B%3F(target.type%3Danswer)%5D.target.is_normal%2Ccomment_count%2Cvoteup_count%2Ccontent%2Crelevant_info%2Cexcerpt.author.badge%5B%3F(type%3Dbest_answerer)%5D.topics%3Bdata%5B%3F(target.type%3Dtopic_sticky_module)%5D.target.data%5B%3F(target.type%3Darticle)%5D.target.content%2Cvoteup_count%2Ccomment_count%2Cvoting%2Cauthor.badge%5B%3F(type%3Dbest_answerer)%5D.topics%3Bdata%5B%3F(target.type%3Dtopic_sticky_module)%5D.target.data%5B%3F(target.type%3Dpeople)%5D.target.answer_count%2Carticles_count%2Cgender%2Cfollower_count%2Cis_followed%2Cis_following%2Cbadge%5B%3F(type%3Dbest_answerer)%5D.topics%3Bdata%5B%3F(target.type%3Danswer)%5D.target.annotation_detail%2Ccontent%2Chermes_label%2Cis_labeled%2Crelationship.is_authorized%2Cis_author%2Cvoting%2Cis_thanked%2Cis_nothelp%2Canswer_type%3Bdata%5B%3F(target.type%3Danswer)%5D.target.author.badge%5B%3F(type%3Dbest_answerer)%5D.topics%3Bdata%5B%3F(target.type%3Danswer)%5D.target.paid_info%3Bdata%5B%3F(target.type%3Darticle)%5D.target.annotation_detail%2Ccontent%2Chermes_label%2Cis_labeled%2Cauthor.badge%5B%3F(type%3Dbest_answerer)%5D.topics%3Bdata%5B%3F(target.type%3Dquestion)%5D.target.annotation_detail%2Ccomment_count%3B&offset=5&limit=20".format(
+            topic_id)
         base_url = "https://www.zhihu.com/topic/{0}/hot".format(topic_id)
         res = html_downloader.download(base_url)
         title, follower, question_num = parse_base_topic_info(res)
@@ -53,19 +54,18 @@ def spider(topic_id: str):
             data_saver.mongo_insert({
                 "TopicId": topic_id,
                 "title": title,
-                # "father_tag_list": father_tag_list,
-                # "child_tag_list": child_tag_list,
                 "follower": follower,
                 "question_num": question_num,
                 "limit": config.MONGO_DOC_LIMIT,
                 "offset": offset,
                 "end_url": "",
-                "data": [],
+                "data": []
             })
         else:
             while data_saver.mg_data_db.find_one({"TopicId": topic_id, "offset": offset+config.MONGO_DOC_LIMIT}):
                 offset += config.MONGO_DOC_LIMIT
 
+        json_load_error = 0     # json解析错误计数器
         while True:
             sleep(.1)
             url = redis.get(topic_id).decode("utf-8")
@@ -74,7 +74,19 @@ def spider(topic_id: str):
             except exceptions.RetryError:
                 logger.error(exc_info=True)
                 return
-            topic_json = json.loads(res)
+            try:
+                topic_json = json.loads(res)
+                json_load_error = 0     # 重置计数器
+            except:
+                if json_load_error == 5:
+                    logger.error("尝试了过多次错误的Json解析")
+                    raise SpiderFrame.exception.TooManyErrorsInJsonLoad
+                json_load_error += 1
+                logger.error("json解析失败，尝试下一个数据包。data: {0}".format(res))
+                sleep(3)
+                url = url.replace("offset={0}".format(findall("offset=(\d*)", url)[0]), "offset={0}".format(int(findall("offset=(\d*)", url)[0])+10))
+                redis.set(topic_id, url)
+                continue
 
             for data in topic_json["data"]:
                 if len(data_saver.mg_data_db.find_one({"TopicId": topic_id, "offset": offset})["data"]) >= config.MONGO_DOC_LIMIT:
@@ -118,7 +130,6 @@ def spider(topic_id: str):
         logger.critical("Fatal Error, Message:{0}, With url: <{0}>, Saving data and exit".format(e, url), exc_info=True)
         url_manager.add_id(id_set=config.TOPIC_ID_SET, _id=topic_id)
         # 结束线程
-        html_downloader.proxies.__exit__()
         logger.critical("Process finished with exit code -1")
         raise SpiderFrame.exception.UnexpectedError
 
@@ -126,8 +137,12 @@ def spider(topic_id: str):
 
 if __name__ == '__main__':
     logger.info("Run as main")
-    spider("19564758")
-    # 结束线程
-    logger.info("Kill Proxies")
-    html_downloader.proxies.__exit__()
-    logger.info("Process finished with exit code 0")
+    try:
+        spider("19564758")
+        logger.info("Process finished with exit code 0")
+    except:
+        logger.critical("Process finished with exit code -1")
+    finally:
+        # 结束线程
+        logger.info("Kill Proxies")
+        html_downloader.proxies.__exit__()
