@@ -17,7 +17,6 @@ import re
 logger = SpiderFrame.logger
 html_downloader = SpiderFrame.HtmlDownloader()
 data_saver = SpiderFrame.DataSaver(db_name=config.DB_NAME, set_name=config.USER_SET)
-logger.warning("如果是外部函数调用user，请务必在外部函数控制user.html_downloader.proxies.__exit__()来关闭代理，否则会耗尽代理")
 
 
 def _parse_(html: str, u_id: str) -> dict:
@@ -155,7 +154,6 @@ def spider(u_id: str) -> None:
 
 if __name__ == '__main__':
     logger.info("Run as main")
-    input("Warning: 如果是外部函数调用user，请务必在外部函数控制user.html_downloader.proxies.__exit__()来关闭代理，否则会耗尽代理")
     spider("laoqinppt")
     # 结束线程
     logger.info("Kill Proxies")
