@@ -82,6 +82,7 @@ def spider(topic_id: str):
                     logger.error("尝试了过多次错误的Json解析")
                     raise SpiderFrame.exception.TooManyErrorsInJsonLoad
                 json_load_error += 1
+                redis.set("ProxiesThreadCode_{0}".format(config.THREAD_ID), "2")
                 logger.error("json解析失败，尝试下一个数据包。data: {0}".format(res))
                 sleep(3)
                 url = url.replace("offset={0}".format(findall("offset=(\d*)", url)[0]), "offset={0}".format(int(findall("offset=(\d*)", url)[0])+10))

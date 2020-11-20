@@ -292,29 +292,40 @@ class HtmlDownloader(Thread):
 
         for i in range(1, config.REQUEST_RETRY_TIMES + 1):
             try:
+
                 res = requests.get(url, params=params, headers=self.headers, proxies=self.proxies.Proxies,
                                    timeout=15)
+
                 if res.status_code == 200:
                     return res.text
+
                 res.raise_for_status()
+
             # 记录异常
             except requests.exceptions.HTTPError:
                 logger.warning(
-                    "HTTPError with url:<{0}> retrying.....{1},{2}".format(url[:25] + " ... " + url[-15:], i,
+                    "HTTPError with url:<{0}> retrying.....{1},{2}".format(url[:40] + " ... " + url[-20:], i,
                                                                            config.REQUEST_RETRY_TIMES))
+
             except requests.exceptions.Timeout:
                 logger.warning(
-                    "Timeout with url:<{0}> retrying.....{1},{2}".format(url[:25] + " ... " + url[-15:], i,
+                    "Timeout with url:<{0}> retrying.....{1},{2}".format(url[:40] + " ... " + url[-20:], i,
                                                                          config.REQUEST_RETRY_TIMES))
-            except requests.exceptions.ProxyError:
+                if i == 3:
+                    self.proxies.need_update()
 
+            except requests.exceptions.ProxyError:
                 self.proxies.need_update()
                 logger.error("Cannot connect to proxy: {0}, timeout".format(self.proxies.Proxies))
+
             except Exception:
                 logger.error("Undefined Error [{0}]".format(url), exc_info=True)
+
             time.sleep(5)
+
         logger.critical("requests.exceptions.RetryError [{0}]".format(url))
         time.sleep(10)
+
         raise requests.exceptions.RetryError
 
     def img_download(self, dir_path: str, url: str) -> None:
