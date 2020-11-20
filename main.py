@@ -32,7 +32,7 @@ class TopicSpider(Thread):
         _id = ""
         try:
             while self.id_manager.list_not_null():
-                logger.warning("Len {0}: {1}".format(config.TOPIC_ID_SET, len(redis.llen("list_"+config.TOPIC_ID_SET))))
+                logger.warning("Len {0}: {1}".format(config.TOPIC_ID_SET, redis.llen("list_"+config.TOPIC_ID_SET)))
                 _id = self.id_manager.get()
                 try:
                     topic.spider(_id)
