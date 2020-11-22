@@ -68,7 +68,7 @@ def _init_url_(_question_id: str):
                    "%2Crelevant_info%2Cquestion%2Cexcerpt%2Crelationship.is_authorized%2Cis_author%2Cvoting" \
                    "%2Cis_thanked%2Cis_nothelp%2Cis_labeled%2Cis_recognized%2Cpaid_info%2Cpaid_info_content%3Bdata%5B" \
                    "%2A%5D.mark_infos%5B%2A%5D.url%3Bdata%5B%2A%5D.author.follower_count%2Cbadge%5B%2A%5D.topics" \
-                   "&limit=5&offset=0"
+                   "&limit=10&offset=0"
     return base_url_start + _question_id + base_url_end
 
 
