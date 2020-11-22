@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="阿里云">
+  <component name="PublishConfigData" autoUpload="Always" serverName="阿里云" autoUploadExternalChanges="true">
     <serverData>
       <paths name="阿里云">
         <serverdata>
@@ -10,5 +10,6 @@
         </serverdata>
       </paths>
     </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>

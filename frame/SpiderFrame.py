@@ -312,7 +312,8 @@ class HtmlDownloader(Thread):
                 logger.warning(
                     "HTTPError with url:<{0}> retrying.....{1},{2}".format(url, i,
                                                                            config.REQUEST_RETRY_TIMES))
-
+                if i == 4:
+                    self.proxies.get_proxies()
             except requests.exceptions.Timeout:
                 logger.warning(
                     "Timeout with url:<{0}> retrying.....{1},{2}".format(url, i,
