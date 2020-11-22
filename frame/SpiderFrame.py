@@ -19,6 +19,9 @@ import logging
 import time
 import config
 
+s = requests.session()
+s.keep_alive = False
+get = s.get
 redis = Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, password=config.REDIS_PASSWORD)
 
 
@@ -110,7 +113,7 @@ class Proxies(Thread):
     def __init__(self):
         super().__init__()
         try:
-            self.ProxiesThread = int(redis.get("ProxiesThread").decode("utf-8"))+1
+            self.ProxiesThread = int(redis.get("ProxiesThread").decode("utf-8")) + 1
         except:
             self.ProxiesThread = 0
         finally:
@@ -143,17 +146,19 @@ class Proxies(Thread):
     def get_proxies(self):
         i = 0
         for i in range(config.REQUEST_RETRY_TIMES):
-            res = requests.get(self.get_proxies_api)
+            res = get(self.get_proxies_api)
             j = eval(res.text.replace("true", "True").replace("false", "False").replace("null", "'null'"))
             if j['code'] == 0:
-                _ping = int(ping(j['data'][0]['ip'])*1000)
+                _ping = int(ping(j['data'][0]['ip']) * 1000)
                 if _ping < 120:
                     logger.info("_ping is {0}s".format(_ping))
-                    redis.set("Proxies_{0}".format(config.THREAD_ID), j['data'][0]['ip'] + ":" + str(j['data'][0]['port']))
+                    redis.set("Proxies_{0}".format(config.THREAD_ID),
+                              j['data'][0]['ip'] + ":" + str(j['data'][0]['port']))
                     redis.set("ProxiesUpdated_{0}".format(config.THREAD_ID), time.time())
                     self.live_time = int(
                         time.mktime(time.strptime(j["data"][0]["expire_time"], "%Y-%m-%d %H:%M:%S"))) - time.time()
-                    logger.warning("Successfully get proxies: {0}".format(j['data'][0]['ip']+":"+str(j['data'][0]['port'])))
+                    logger.warning(
+                        "Successfully get proxies: {0}".format(j['data'][0]['ip'] + ":" + str(j['data'][0]['port'])))
                     return
                 else:
                     logger.warning("_ping is {0}s, response time too long".format(_ping))
@@ -187,7 +192,8 @@ class Proxies(Thread):
                 self.main_thread = True  # 以主线运行标志
                 logger.warning("------------ Proxies thread {0} switch to main ------------".format(self.ProxiesThread))
 
-            if self.main_thread and (time.time() - start_time > self.live_time or redis.get("ProxiesThreadCode_{0}".format(config.THREAD_ID)).decode("utf-8") == "2"):
+            if self.main_thread and (time.time() - start_time > self.live_time or redis.get(
+                    "ProxiesThreadCode_{0}".format(config.THREAD_ID)).decode("utf-8") == "2"):
                 logger.warning("Thread: {0}, Proxies failure, get new one".format(self.ProxiesThread))
                 # 重设代理使用时长
                 start_time = time.time()
@@ -293,8 +299,8 @@ class HtmlDownloader(Thread):
         for i in range(1, config.REQUEST_RETRY_TIMES + 1):
             try:
 
-                res = requests.get(url, params=params, headers=self.headers, proxies=self.proxies.Proxies,
-                                   timeout=15)
+                res = get(url, params=params, headers=self.headers, proxies=self.proxies.Proxies,
+                          timeout=15)
 
                 if res.status_code == 200:
                     return res.text
@@ -304,16 +310,15 @@ class HtmlDownloader(Thread):
             # 记录异常
             except requests.exceptions.HTTPError:
                 logger.warning(
-                    "HTTPError with url:<{0}> retrying.....{1},{2}".format(url[:40] + " ... " + url[-20:], i,
+                    "HTTPError with url:<{0}> retrying.....{1},{2}".format(url, i,
                                                                            config.REQUEST_RETRY_TIMES))
 
             except requests.exceptions.Timeout:
                 logger.warning(
-                    "Timeout with url:<{0}> retrying.....{1},{2}".format(url[:40] + " ... " + url[-20:], i,
+                    "Timeout with url:<{0}> retrying.....{1},{2}".format(url, i,
                                                                          config.REQUEST_RETRY_TIMES))
                 if i == 3:
                     self.proxies.get_proxies()
-
             except requests.exceptions.ProxyError:
                 self.proxies.get_proxies()
                 logger.error("Cannot connect to proxy: {0}, timeout".format(self.proxies.Proxies))
@@ -333,7 +338,7 @@ class HtmlDownloader(Thread):
             raise exception.UrlEmptyException
         file_name = path.join(dir_path, path.basename(url).split("?")[0])
         try:
-            res = requests.get(url, headers=self.headers, proxies=self.proxies.Proxies)
+            res = get(url, headers=self.headers, proxies=self.proxies.Proxies)
             with open(file_name, "wb") as f:
                 f.write(res.content)
         except:
