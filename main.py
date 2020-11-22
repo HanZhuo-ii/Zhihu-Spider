@@ -213,7 +213,7 @@ class running(Thread):
         # watching
         TS_i = QS_i = CS_i = US_i = 1
         while True:
-            if TS.exit_code != 0 and not TS.is_alive():
+            if (TS.exit_code != 0 or TS.id_manager.list_not_null()) and not TS.is_alive():
                 for i in range(1, 4):
                     if TS.is_alive():
                         continue
@@ -224,7 +224,7 @@ class running(Thread):
                     if i == 3 and not TS.is_alive():
                         logger.error("Active thread TS failed")
                         send_mail("TS is exit and try to activate it failed")
-            if QS.exit_code != 0 and not QS.is_alive():
+            if (QS.exit_code != 0 or TS.id_manager.list_not_null()) and not QS.is_alive():
                 for i in range(1, 4):
                     if QS.is_alive():
                         QS_i = 1
@@ -236,7 +236,7 @@ class running(Thread):
                     if i == 3 and not QS.is_alive():
                         logger.error("----- Active thread QS failed -----")
                         send_mail("QS is exit and try to activate it failed")
-            if CS.exit_code != 0 and not CS.is_alive():
+            if (CS.exit_code != 0 or TS.id_manager.list_not_null()) and not CS.is_alive():
                 for i in range(1, 4):
                     if CS.is_alive():
                         CS_i = 1
@@ -248,7 +248,7 @@ class running(Thread):
                     if i == 3 and not CS.is_alive():
                         logger.error("----- Active thread CS failed -----")
                         send_mail("CS is exit and try to activate it failed")
-            if US.exit_code != 0 and not US.is_alive():
+            if (US.exit_code != 0 or TS.id_manager.list_not_null()) and not US.is_alive():
                 for i in range(1, 4):
                     if US.is_alive():
                         US_i = 1
