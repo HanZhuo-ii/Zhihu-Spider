@@ -296,11 +296,11 @@ class HtmlDownloader(Thread):
         if params is None:
             params = {}
 
-        for i in range(1, config.REQUEST_RETRY_TIMES + 1):
+        for i in range(1, config.REQUEST_RETRY_TIMES + 2):
             try:
 
                 res = get(url, params=params, headers=self.headers, proxies=self.proxies.Proxies,
-                          timeout=15)
+                          timeout=15, verify=False)
 
                 if res.status_code == 200:
                     return res.text
@@ -312,14 +312,12 @@ class HtmlDownloader(Thread):
                 logger.warning(
                     "HTTPError with url:<{0}> retrying.....{1},{2}".format(url, i,
                                                                            config.REQUEST_RETRY_TIMES))
-                if i == 4:
-                    self.proxies.get_proxies()
+
             except requests.exceptions.Timeout:
                 logger.warning(
                     "Timeout with url:<{0}> retrying.....{1},{2}".format(url, i,
                                                                          config.REQUEST_RETRY_TIMES))
-                if i == 3:
-                    self.proxies.get_proxies()
+
             except requests.exceptions.ProxyError:
                 self.proxies.get_proxies()
                 logger.error("Cannot connect to proxy: {0}, timeout".format(self.proxies.Proxies))
@@ -327,6 +325,8 @@ class HtmlDownloader(Thread):
             except Exception:
                 logger.error("Undefined Error [{0}]".format(url), exc_info=True)
 
+            if i == 4:
+                self.proxies.get_proxies()
             time.sleep(5)
 
         logger.critical("requests.exceptions.RetryError [{0}]".format(url))
@@ -339,7 +339,7 @@ class HtmlDownloader(Thread):
             raise exception.UrlEmptyException
         file_name = path.join(dir_path, path.basename(url).split("?")[0])
         try:
-            res = get(url, headers=self.headers, proxies=self.proxies.Proxies)
+            res = get(url, headers=self.headers, proxies=self.proxies.Proxies, verify=False)
             with open(file_name, "wb") as f:
                 f.write(res.content)
         except:
