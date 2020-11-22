@@ -196,8 +196,8 @@ class running(Thread):
         CS = CommentSpider()
         US = UserSpider()
 
-        # logger.info("Processing Error Data")
-        # ProcessError()
+        logger.info("Processing Error Data")
+        RecoverErrorID()
         TS.start()
         logger.info("Next thread will be start after 7.5s")
         sleep(7.5)
