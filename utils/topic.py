@@ -67,8 +67,10 @@ def spider(topic_id: str):
 
         json_load_error = 0     # json解析错误计数器
         while True:
-            sleep(.35)
+            sleep(.3)
             url = redis.get(topic_id).decode("utf-8")
+            if int(findall("offset=(\d*)", url)[0]) % 10000 == 0:
+                sleep(60)
             try:
                 res = html_downloader.download(url)
             except exceptions.RetryError:

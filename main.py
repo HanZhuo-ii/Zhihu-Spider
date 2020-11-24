@@ -38,6 +38,7 @@ class TopicSpider(Thread):
                     topic.spider(_id)
                 except:
                     continue
+                sleep(15)
             self.exit_code = 0
         except Exception as e:
             # 之前的报错信息已被记录
