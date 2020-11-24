@@ -112,24 +112,30 @@ class Proxies(Thread):
 
     def __init__(self):
         super().__init__()
+
+        self.watcher = 1
+        self.main_thread = False  # 主代理线程运行
+        self.thread_flag = True  # 线程运行标志
+        self.temp = ''
+        self.control = 0
+        self.get_proxies_api = config.PROXIES_API
+        self.Proxies = {
+            "http": "",
+            "https": ""
+        }
+
         try:
             self.ProxiesThread = int(redis.get("ProxiesThread").decode("utf-8")) + 1
         except:
             self.ProxiesThread = 0
         finally:
             redis.set("ProxiesThread", self.ProxiesThread)
-        self.main_thread = False  # 主代理线程运行
-        self.thread_flag = True  # 线程运行标志
-        self.temp = ''
+            redis.set("ProxiesUpdated_{0}".format(config.THREAD_ID), time.time())
+
         if not config.USE_PROXIES:
             self.live_time = 1905603107
         else:
             self.live_time = config.PROXIES_LIVE_TIME
-        self.get_proxies_api = config.PROXIES_API
-        self.Proxies = {
-            "http": "",
-            "https": ""
-        }
 
     # 结束线程
     def __exit__(self):
@@ -144,6 +150,19 @@ class Proxies(Thread):
         return
 
     def get_proxies(self):
+
+        if time.time() - float(redis.get("ProxiesUpdated_{0}".format(config.THREAD_ID))) < 60:
+            self.control += 1
+            if self.control >= 5 and self.watcher <= 3:
+                logger.error("代理获取频繁，稍后再试")
+                time.sleep(90)
+                self.watcher += 1
+            elif self.watcher > 3:
+                logger.critical("代理获取过于频繁，并且无法自动修正， 程序即将退出")
+                exit(-1)
+        else:
+            self.control = self.watcher = 0
+
         i = 0
         for i in range(config.REQUEST_RETRY_TIMES):
             res = get(self.get_proxies_api)
