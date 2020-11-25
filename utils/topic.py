@@ -70,7 +70,8 @@ def spider(topic_id: str):
             sleep(.3)
             url = redis.get(topic_id).decode("utf-8")
             if int(findall("offset=(\d*)", url)[0]) % 10000 == 0:
-                sleep(60)
+                redis.rpush("list_"+config.TOPIC_ID_SET, topic_id)
+                return
             try:
                 res = html_downloader.download(url)
             except exceptions.RetryError:
