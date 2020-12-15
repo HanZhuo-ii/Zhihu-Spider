@@ -152,12 +152,19 @@ running：多线程爬虫与监控
 > 自定义异常
 
 RequestRetryError：同一URL连续多次请求失败
+
 UserNotExist：知乎用户已注销
+
 UrlEmptyException：requests的URL为空
+
 NumInfoLengthException
+
 UnexpectedError：意料之外的异常
+
 ProxiesPoolNull：代理用尽
+
 TooManyErrorsInJsonLoad：尝试了过多次错误的Json解析
+
 #### def custom_logger() 
 > logging日志
 
