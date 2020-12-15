@@ -129,12 +129,18 @@ KEY_WORDS_SEARCH_SET = "关键词搜索"
 
 ### main.py 主文件
 全站爬虫的主调度函数，此函数主要分为五个功能模块和一个调度模块
+
 #### 功能模块
 TopicSpider：话题爬虫，负责调度爬虫根据topicID爬取不同话题下的提问信息
+
 QuestionSpider：提问爬虫，负责调度爬虫根据questionID爬取不同提问下的回答信息
+
 CommentSpider：评论爬虫，负责调度爬虫根据answerID爬取不同回答下的评论信息
+
 UserSpider：用户信息爬虫
+
 RecoverErrorID：爬虫运行过程中会产生一些错误，这些错误引发爬虫中断，导致部分信息没有爬完就提前终止，此模块可以将异常的ID进行回收
+
 #### 调度模块
 running：多线程爬虫与监控
 	多个模块同时进行爬取，首先按照顺序启动线程（不按照顺序可能导致其他模块无可用ID）
